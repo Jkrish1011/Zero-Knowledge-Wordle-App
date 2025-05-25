@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./style.css" />
+    <title>Wordle Game</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Wordle - 6 Letter Edition</h1>
+      <div id="wordle-grid"></div>
+      <form id="wordleForm" autocomplete="off">
+        <input type="text" id="wordInput" maxlength="6" autofocus required pattern="[A-Za-z]{6}" placeholder="Enter 6 letter word" />
+        <button type="submit">Guess</button>
+      </form>
+      <div id="message"></div>
+    </div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html> 

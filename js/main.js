@@ -1,35 +1,10 @@
-import { UltraHonkBackend } from "@aztec/bb.js"
-import { Noir } from "@noir-lang/noir_js";
-// import circuit from "../target/age_verifier.json" assert { type: "json" };
-
 // Wordle Game Logic
 
-const WORD_LIST = [
-    "BRIGHT",
-    "CIRCLE",
-    "FOREST",
-    "GARDEN",
-    "LAPTOP",
-    "MARKET",
-    "PUZZLE",
-    "ROCKET",
-    "TRAVEL",
-    "WINDOW"
-  ];
-
-const MAX_ATTEMPTS = 6;
-const WORD_LENGTH = 6;
-
-let targetWord = "";
 let currentRow = 0;
 let isGameOver = false;
-
-const pickRandomWord = () => {
-  // Only use words with exactly 6 letters
-  const sixLetterWords = WORD_LIST.filter(w => w.length === WORD_LENGTH);
-  const currentWord = sixLetterWords[Math.floor(Math.random() * sixLetterWords.length)].toUpperCase();
-  return currentWord;
-}
+const MAX_ATTEMPTS = 6;
+const WORD_LENGTH = 6;
+let sessionId = "";
 
 function createGrid() {
   const grid = document.getElementById("wordle-grid");
@@ -54,38 +29,14 @@ function showMessage(msg, color = null) {
   else messageDiv.style.color = "#d32f2f";
 }
 
-function clearMessage() {
-  showMessage("");
-}
-
-function checkGuess(guess) {
-  const guessArr = guess.split("");
-  const targetArr = targetWord.split("");
-  let letterStatus = Array(WORD_LENGTH).fill("absent");
-  let targetLetterCount = {};
-
-  // Count letters in target word
-  for (let l of targetArr) {
-    targetLetterCount[l] = (targetLetterCount[l] || 0) + 1;
-  }
-
-  // First pass: correct positions
-  for (let i = 0; i < WORD_LENGTH; i++) {
-    if (guessArr[i] === targetArr[i]) {
-      letterStatus[i] = "correct";
-      targetLetterCount[guessArr[i]]--;
-    }
-  }
-
-  // Second pass: present but wrong position
-  for (let i = 0; i < WORD_LENGTH; i++) {
-    if (letterStatus[i] === "correct") continue;
-    if (targetArr.includes(guessArr[i]) && targetLetterCount[guessArr[i]] > 0) {
-      letterStatus[i] = "present";
-      targetLetterCount[guessArr[i]]--;
-    }
-  }
-
+function updateGrid(feedback, attempts, userInput) {
+  let guessArr = userInput.split("");
+  let letterStatus = feedback.map(status => {
+      if (status === 2) return "correct";
+      if (status === 1) return "present";
+      return "absent";
+    });
+  
   // Update grid colors and letters
   for (let i = 0; i < WORD_LENGTH; i++) {
     const box = document.getElementById(`box-${currentRow}-${i}`);
@@ -93,29 +44,47 @@ function checkGuess(guess) {
     box.classList.remove("correct", "present", "absent");
     box.classList.add(letterStatus[i]);
   }
-  let feedback = letterStatus.map(status => {
-    if (status === "correct") return 2;
-    if (status === "present") return 1;
-    return 0;
-  });
-  console.log(letterStatus);
-  console.log(feedback);
 
-  if (guess === targetWord) {
-    showMessage("Congratulations! You guessed the word!", "#388e3c");
-    isGameOver = true;
-    return;
-  }
+  currentRow = attempts;
+}
 
-  currentRow++;
+function clearMessage() {
+  showMessage("");
+}
 
-  if (currentRow === MAX_ATTEMPTS) {
-    showMessage(`Game Over! The word was: ${targetWord}`, "#d32f2f");
-    isGameOver = true;
+async function sendFeedbackData(sessionId, userInput, userSignature) {
+  const url = 'http://localhost:3000/api/check_feedback';
+  const data = {
+    sessionId: sessionId,
+    userInput: userInput,
+    userSignature: userSignature
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || response.statusText}`);
+    }
+
+    const responseData = await response.json();
+    console.log('Success:', responseData);
+    return responseData; 
+
+  } catch (err) {
+    console.error('Error sending data:', err);
+    throw err;
   }
 }
 
-function handleInput(e) {
+async function handleInput(e) {
   e.preventDefault();
   if (isGameOver) return;
   clearMessage();
@@ -126,24 +95,36 @@ function handleInput(e) {
     showMessage("Please enter a valid 6-letter word.");
     return;
   }
-  checkGuess(val);
+  // checkGuess(val);
+  const response = await sendFeedbackData(sessionId, val, "");
+  console.log(response);
+  updateGrid(response.data.feedback, response.data.attempts, val);
+  if(response.data.isGameOver && response.data.feedback.every(status => status === 2)) {
+    showMessage(`Game Over! You won!`, "#388e3c");
+    isGameOver = true;
+  }
+  if(response.data.attempts === MAX_ATTEMPTS && !response.data.isGameOver) {
+    showMessage(`Game Over! You lost!`, "#d32f2f");
+    isGameOver = true;
+  }
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  await fetch('http://localhost:3000/api/start_game')
+  let response = await fetch('http://localhost:3000/api/start_game')
     .then(response => response.json())
     .then(data => {
       console.log(data);
+      return data;
     })
     .catch(error => {
       console.error('Error:', error);
     });
-  targetWord = await pickRandomWord();
-  console.log(targetWord);
+  
   createGrid();
   currentRow = 0;
   isGameOver = false;
   clearMessage();
+  sessionId = response.data.sessionId;
 
   const form = document.getElementById("wordleForm");
   form.addEventListener("submit", handleInput);

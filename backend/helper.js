@@ -4,6 +4,7 @@ const { randomBytes } = require('crypto');
 // const { compile, createProof } = require('@aztec/noir-compiler');
 
 const { WORD_LIST } = require('./words');
+const { WORD_LENGTH } = require('./constants');
 
 async function initBarretenberg() {
     const barretenberg = await Barretenberg.new();
@@ -38,8 +39,7 @@ function charToFixedBytes(char, length = 64) {
     return paddedBuffer;
 }
 
-const MAX_ATTEMPTS = 6;
-const WORD_LENGTH = 6;
+
 
 const pickRandomWord = () => {
     // Only use words with exactly 6 letters
@@ -61,26 +61,52 @@ const computePedersenCommmitment = async (targetWord, sessionId, salt, bb) => {
     ];
     
     const commitment = await bb.pedersenHash(inputs, 0);
-
-    await testPedersenHash(bb);
     return commitment.toString();
 };
 
-async function testPedersenHash(bb) {
-    const inputs = ["1", "2", "3"];
-    let testInputs = inputs.map(input => {
-        return new Fr(uint8ArrayToBigIntBE(charToFixedBytes(input)) % Fr.MODULUS );
+function checkGuess(guess, targetWord) {
+    const guessArr = guess.split("");
+    const targetArr = targetWord.split("");
+    let letterStatus = Array(WORD_LENGTH).fill("absent");
+    let targetLetterCount = {};
+  
+    // Count letters in target word
+    for (let l of targetArr) {
+      targetLetterCount[l] = (targetLetterCount[l] || 0) + 1;
+    }
+  
+    // First pass: correct positions
+    for (let i = 0; i < WORD_LENGTH; i++) {
+      if (guessArr[i] === targetArr[i]) {
+        letterStatus[i] = "correct";
+        targetLetterCount[guessArr[i]]--;
+      }
+    }
+  
+    // Second pass: present but wrong position
+    for (let i = 0; i < WORD_LENGTH; i++) {
+      if (letterStatus[i] === "correct") continue;
+      if (targetArr.includes(guessArr[i]) && targetLetterCount[guessArr[i]] > 0) {
+        letterStatus[i] = "present";
+        targetLetterCount[guessArr[i]]--;
+      }
+    }
+  
+    // Update grid colors and letters
+    
+    let feedback = letterStatus.map(status => {
+      if (status === "correct") return 2;
+      if (status === "present") return 1;
+      return 0;
     });
-    const testHash = await bb.pedersenHash(testInputs, 0);
-    console.log("Test hash:", testHash.toString());
-    // 0x004d362aaff0fb24e4dd09c146a3839ab5ab33abeec95b2046fe9b723e608647
-    // 0x0c21b8e26f60b476d9568df4807131ff70d8b7fffb03fa07960aa1cac9be7c46
-    // 0x0c21b8e26f60b476d9568df4807131ff70d8b7fffb03fa07960aa1cac9be7c46
+
+    return feedback;
 }
 
 module.exports = {
     pickRandomWord,
     computePedersenCommmitment,
     initBarretenberg,
-    randomBytesCrypto
+    randomBytesCrypto,
+    checkGuess
 };

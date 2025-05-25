@@ -8,7 +8,8 @@ const { Fr } = require('@aztec/bb.js');
 const {UltraHonkBackend} = require("@aztec/bb.js");
 
 
-const { pickRandomWord, computePedersenCommmitment, initBarretenberg } = require('./helper.js');
+const { pickRandomWord, computePedersenCommmitment, initBarretenberg, checkGuess } = require('./helper.js');
+const { MAX_ATTEMPTS } = require('./constants.js');
 
 // Load environment variables
 dotenv.config();
@@ -28,44 +29,54 @@ app.use(bodyParser.json({limit: '50mb'}));
 app.use(bodyParser.urlencoded({extended: true, limit: '50mb'}));
 // app.use(express.json());
 
+let game_db = [];
+
+
 // Check feedback route
 app.post('/api/check_feedback', async (req, res) => {
     try {
-        const { targetWord, salt, session_id, pedersen_hash, feedback, userInput } = req.body;
+        const { sessionId, userInput, userSignature } = req.body;
 
-        // Validate required fields
-        if (!username || !password || !proof) {
+        // get the target word from the game_db
+        const game = game_db.find(game => game.sessionId === sessionId);
+        if(!game) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing required fields: username, password, and proof are required'
+                error: 'Invalid sessionId. Start a new game'
             });
         }
 
-        const circuit = JSON.parse(fs.readFileSync(path.join(__dirname, 'wordle_app.json'), "utf-8"));
-        const backend = new UltraHonkBackend(circuit.bytecode);
-        
-        if(Number(publicInputs[0]) !== 2025) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid public input'
-            });
-        }
-        const verified = await backend.verifyProof({proof:Uint8Array.from(proof), publicInputs});
+        const feedback = checkGuess(userInput, game.targetWord);
+        console.log(feedback);
+        game.attempts++;
 
-       if(!verified) {
-        return res.status(400).json({ 
-            success: false,
-            error: 'Proof verification Failed!'
-        });
-       }
+    //     const witness = {
+    //         targetWord: game.targetWord,
+    //         salt: game.salt,
+    //         session_id: game.sessionId,
+    //         pedersen_hash: game.commitment,
+    //         feedback: [0,0,0,0,0,0],
+    //         userInput: userInput
+    //     }
+    //     const circuit = JSON.parse(fs.readFileSync(path.join(__dirname, 'wordle_app.json'), "utf-8"));
+    //     const backend = new UltraHonkBackend(circuit.bytecode);
+    //     const {proof, publicInputs} = await backend.generateProof(witness);
+    //     const verified = await backend.verifyProof({proof:Uint8Array.from(proof), publicInputs});
 
-        // Mock successful registration
+    //    if(!verified) {
+    //     return res.status(400).json({ 
+    //         success: false,
+    //         error: 'Proof verification Failed!'
+    //     });
+    //    }
+
         return res.status(200).json({
             success: true,
-            message: 'Registration successful',
+            message: 'Feedback submitted successfully',
             data: {
-                username,
-                // Don't send back sensitive data
+                feedback,
+                attempts: game.attempts,
+                isGameOver: (game.attempts === MAX_ATTEMPTS) || (feedback.every(status => status === 2))
             }
         });
 
@@ -85,16 +96,24 @@ app.get('/api/start_game', async (req, res) => {
         const targetWord = pickRandomWord();
         const sessionId = Fr.random();
         const salt = Fr.random();
-
+        console.log("targetWord", targetWord);
         const bb = await initBarretenberg();
         const pedersenHash = await computePedersenCommmitment(targetWord, sessionId, salt, bb);
-        
+
+        game_db.push({
+            targetWord: targetWord,
+            salt: salt.toString().slice(2, salt.toString().length),
+            sessionId: sessionId.toString().slice(2, sessionId.toString().length),
+            commitment:pedersenHash,
+            attempts: 0
+        });
+
         return res.status(200).json({
             success: true,
             message: 'Game started successfully',
             data: {
                 sessionId: sessionId.toString().slice(2, sessionId.toString().length),
-                commitment:pedersenHash
+                commitment: pedersenHash
             }
         });
     } catch (error) {

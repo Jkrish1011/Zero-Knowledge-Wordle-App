@@ -1,21 +1,19 @@
 const { Barretenberg, Fr } = require('@aztec/bb.js');
-const { keccak256, toUtf8Bytes } = require('ethers');
 const { randomBytes } = require('crypto');
-// const { compile, createProof } = require('@aztec/noir-compiler');
 
 const { WORD_LIST } = require('./words');
 const { WORD_LENGTH } = require('./constants');
 
-async function initBarretenberg() {
+const initBarretenberg = async () => {
     const barretenberg = await Barretenberg.new();
     return barretenberg;
 }
 
-function randomBytesCrypto(len) {
+const randomBytesCrypto = (len) => {
     return new Uint8Array(randomBytes(len));
 }
 
-function buffer32BytesToBigIntBE(buf) {
+const buffer32BytesToBigIntBE = (buf) => {
     return (
       (buf.readBigUInt64BE(0) << 192n) +
       (buf.readBigUInt64BE(8) << 128n) +
@@ -27,18 +25,34 @@ function buffer32BytesToBigIntBE(buf) {
 /**
  * Convert a BE Uint8Array to a BigInt.
  */
-function uint8ArrayToBigIntBE(bytes) {
+const uint8ArrayToBigIntBE = (bytes) => {
     const buffer = Buffer.from(bytes);
     return buffer32BytesToBigIntBE(buffer);
 }
 
-function charToFixedBytes(char, length = 64) {
+const charToFixedBytes = (char, length = 64) => {
     const charBuffer = Buffer.from(char, 'utf8');
     const paddedBuffer = Buffer.alloc(length);
     charBuffer.copy(paddedBuffer, 0);
     return paddedBuffer;
 }
 
+const getAlphabeticIndex = (char) => {
+    // Ensure input is a single character
+    if (typeof char !== 'string' || char.length !== 1) {
+        throw new Error("not a single character.");
+    }
+
+    // Convert to lowercase to handle both cases (e.g., 'A' and 'a')
+    const lowerChar = char.toLowerCase();
+
+    // Check if it's an alphabet character
+    if (lowerChar >= 'a' && lowerChar <= 'z') {
+        return lowerChar.charCodeAt(0) - 'a'.charCodeAt(0);
+    } else {
+        throw new Error("not an alphabet character.");
+    }
+}
 
 
 const pickRandomWord = () => {
@@ -51,7 +65,7 @@ const pickRandomWord = () => {
 const computePedersenCommmitment = async (targetWord, sessionId, salt, bb) => {
 
     const wordInputs = [...targetWord].map(char => {
-        return new Fr(uint8ArrayToBigIntBE(charToFixedBytes(char)) % Fr.MODULUS );
+        return uint8ArrayToBigIntBE(charToFixedBytes(char)) % Fr.MODULUS;
     });
     
     const inputs = [
@@ -64,7 +78,7 @@ const computePedersenCommmitment = async (targetWord, sessionId, salt, bb) => {
     return commitment.toString();
 };
 
-function checkGuess(guess, targetWord) {
+const checkGuess = (guess, targetWord) => {
     const guessArr = guess.split("");
     const targetArr = targetWord.split("");
     let letterStatus = Array(WORD_LENGTH).fill("absent");
@@ -108,5 +122,7 @@ module.exports = {
     computePedersenCommmitment,
     initBarretenberg,
     randomBytesCrypto,
-    checkGuess
+    checkGuess,
+    uint8ArrayToBigIntBE,
+    getAlphabeticIndex
 };

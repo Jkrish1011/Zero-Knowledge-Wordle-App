@@ -6,9 +6,10 @@ const fs = require('fs');
 const path = require('path');
 const { Fr } = require('@aztec/bb.js');
 const {UltraHonkBackend} = require("@aztec/bb.js");
+const { Noir } = require('@noir-lang/noir_js');
+const circuit = require("./noir_circuit/wordle_app.json");
 
-
-const { pickRandomWord, computePedersenCommmitment, initBarretenberg, checkGuess } = require('./helper.js');
+const { getAlphabeticIndex, pickRandomWord, computePedersenCommmitment, initBarretenberg, checkGuess, randomBytesCrypto, uint8ArrayToBigIntBE } = require('./helper.js');
 const { MAX_ATTEMPTS } = require('./constants.js');
 
 // Load environment variables
@@ -47,41 +48,75 @@ app.post('/api/check_feedback', async (req, res) => {
         }
 
         const feedback = checkGuess(userInput, game.targetWord);
-        console.log(feedback);
         game.attempts++;
 
-    //     const witness = {
-    //         targetWord: game.targetWord,
-    //         salt: game.salt,
-    //         session_id: game.sessionId,
-    //         pedersen_hash: game.commitment,
-    //         feedback: [0,0,0,0,0,0],
-    //         userInput: userInput
-    //     }
-    //     const circuit = JSON.parse(fs.readFileSync(path.join(__dirname, 'wordle_app.json'), "utf-8"));
-    //     const backend = new UltraHonkBackend(circuit.bytecode);
-    //     const {proof, publicInputs} = await backend.generateProof(witness);
-    //     const verified = await backend.verifyProof({proof:Uint8Array.from(proof), publicInputs});
+        const noir = new Noir(circuit);
+        const userInputConverted = userInput.split("").map(char => BigInt(getAlphabeticIndex(char)));
+        const targetWordConverted = game.targetWord.split("").map(char => BigInt(getAlphabeticIndex(char)));
+        const feedbackConverted = feedback.map(f => BigInt(f)); 
+        console.log({userInputConverted});
+        console.log('Types check:');
+        console.log('targetWord:', targetWordConverted, typeof targetWordConverted[0]);
+        console.log('salt:', BigInt(game.salt), typeof BigInt(game.salt));
+        console.log('session_id:', BigInt(game.sessionId), typeof BigInt(game.sessionId));
+        console.log('pedersen_hash:', BigInt(game.commitment), typeof BigInt(game.commitment));
+        
+        
+        console.log('feedback:', feedbackConverted, typeof feedbackConverted[0]);
+        console.log('userInput:', userInputConverted, typeof userInputConverted[0]);
+        const { witness } = await noir.execute({
+            targetWord: targetWordConverted,
+            salt: BigInt(game.salt),
+            session_id: BigInt(game.sessionId),
+            pedersen_hash: BigInt(game.commitment), 
+            feedback: feedbackConverted, 
+            userInput: userInputConverted
+        });
+        
+        const backend = new UltraHonkBackend(circuit.bytecode);
+        const {proof, publicInputs} = await backend.generateProof(witness);
 
-    //    if(!verified) {
-    //     return res.status(400).json({ 
-    //         success: false,
-    //         error: 'Proof verification Failed!'
-    //     });
-    //    }
-
+        if(feedback.every(status => status === 2)) {
+            return res.status(200).json({
+                success: true,
+                message: 'Game Over! You won!',
+                data: {
+                    feedback,
+                    attempts: game.attempts,
+                    isGameOver: true,
+                    proof: proof,
+                    publicInputs: publicInputs
+                }
+            });
+        }
+        if(game.attempts === MAX_ATTEMPTS && !feedback.every(status => status === 2)) {
+            return res.status(200).json({
+                success: true,
+                message: 'Game Over! You lost!',
+                data: {
+                    feedback,
+                    attempts: game.attempts,
+                    isGameOver: true,
+                    targetWord: game.targetWord,
+                    proof: proof,
+                    publicInputs: publicInputs
+                }
+            });
+        }
         return res.status(200).json({
             success: true,
-            message: 'Feedback submitted successfully',
+            message: 'Feedback calculated successfully',
             data: {
                 feedback,
                 attempts: game.attempts,
+                proof: proof,
+                publicInputs: publicInputs,
                 isGameOver: (game.attempts === MAX_ATTEMPTS) || (feedback.every(status => status === 2))
             }
         });
 
     } catch (error) {
-        console.error('Registration error:', error);
+        console.error('Error:', error);
         return res.status(500).json({
             success: false,
             message: 'Internal server error',
@@ -94,16 +129,16 @@ app.post('/api/check_feedback', async (req, res) => {
 app.get('/api/start_game', async (req, res) => {
     try {
         const targetWord = pickRandomWord();
-        const sessionId = Fr.random();
-        const salt = Fr.random();
+        const sessionId = uint8ArrayToBigIntBE(randomBytesCrypto(64));
+        const salt = uint8ArrayToBigIntBE(randomBytesCrypto(64));
         console.log("targetWord", targetWord);
         const bb = await initBarretenberg();
         const pedersenHash = await computePedersenCommmitment(targetWord, sessionId, salt, bb);
 
         game_db.push({
             targetWord: targetWord,
-            salt: salt.toString().slice(2, salt.toString().length),
-            sessionId: sessionId.toString().slice(2, sessionId.toString().length),
+            salt: salt.toString(),
+            sessionId: sessionId.toString(),
             commitment:pedersenHash,
             attempts: 0
         });
@@ -112,7 +147,7 @@ app.get('/api/start_game', async (req, res) => {
             success: true,
             message: 'Game started successfully',
             data: {
-                sessionId: sessionId.toString().slice(2, sessionId.toString().length),
+                sessionId: sessionId.toString(),
                 commitment: pedersenHash
             }
         });

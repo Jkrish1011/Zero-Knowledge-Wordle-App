@@ -59,6 +59,7 @@ async function sendFeedbackData(sessionId, userInput, userSignature) {
     userInput: userInput,
     userSignature: userSignature
   };
+  console.log({data});
 
   try {
     const response = await fetch(url, {
@@ -96,15 +97,15 @@ async function handleInput(e) {
     return;
   }
   // checkGuess(val);
-  const response = await sendFeedbackData(sessionId, val, "");
+  const response = await sendFeedbackData(sessionId, val, "abcdefg");
   console.log(response);
   updateGrid(response.data.feedback, response.data.attempts, val);
   if(response.data.isGameOver && response.data.feedback.every(status => status === 2)) {
     showMessage(`Game Over! You won!`, "#388e3c");
     isGameOver = true;
   }
-  if(response.data.attempts === MAX_ATTEMPTS && !response.data.isGameOver) {
-    showMessage(`Game Over! You lost!`, "#d32f2f");
+  if(response.data.attempts === MAX_ATTEMPTS && !response.data.feedback.every(status => status === 2)) {
+    showMessage(`Game Over! You lost! The word was: ${response.data.targetWord}`, "#d32f2f");
     isGameOver = true;
   }
 }

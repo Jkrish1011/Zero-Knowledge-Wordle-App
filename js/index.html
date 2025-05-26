@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="./style.css" />
     <title>Wordle Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
   <body>
     <div class="container">
@@ -14,7 +15,36 @@
         <input type="text" id="wordInput" maxlength="6" autofocus required pattern="[A-Za-z]{6}" placeholder="Enter 6 letter word" />
         <button type="submit">Guess</button>
       </form>
-      <div id="message"></div>
+      <div id="message" class="mt-4 text-center font-bold text-red-600"></div>
+      <div id="loading-container" class="hidden mt-4 flex flex-col items-center justify-center">
+        <img src="./assets/reload-cat.gif" alt="Loading..." class="w-16 h-16" />
+        <p class="mt-2 text-gray-600">Checking your guess...</p>
+      </div>
+      <div id="verify-loading-container" class="hidden mt-4 flex flex-col items-center justify-center">
+        <img src="./assets/verify-check.gif" alt="Loading..." class="w-30 h-16" />
+        <p class="mt-2 text-gray-600">Verifying your Proofs...</p>
+      </div>
+
+      <div class="mb-4">
+        <h2 class="text-lg font-semibold text-gray-700 mb-2">Backend Commitment for Current Word</h2>
+        <div id="backendCommitmentValue" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
+      </div>
+      <div id="proof-container" class="hidden mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Proof</label>
+            <textarea id="proof" class="w-full h-32 p-2 bg-gray-100 rounded font-mono text-sm resize-none" readonly></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Public Inputs</label>
+            <textarea id="publicInputs" class="w-full h-32 p-2 bg-gray-100 rounded font-mono text-sm resize-none" readonly></textarea>
+          </div>
+          <button id="verifyProofs" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors">
+            Verify Proofs
+          </button>
+        </div>
+      </div>
     </div>
     <script type="module" src="/main.js"></script>
   </body>

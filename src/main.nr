@@ -23,6 +23,7 @@ fn main(
     target_word_concatinated[7] = salt;
 
     let computed_pedersen_hash = std::hash::pedersen_hash_with_separator(target_word_concatinated, 0);
+    std::println(computed_pedersen_hash);
     // Check if the computed pedersen hash is equal to the pedersen hash provided by the backend
     assert(computed_pedersen_hash == pedersen_hash);
     
@@ -72,13 +73,14 @@ unconstrained fn compute_feedback(targetWord: [Field;6], mut usedWord: [Field;6]
 
 #[test]
 fn test_main() {
-    // main([15, 20, 25, 25, 11, 4], [1, 2, 0, 0, 2, 2], [25, 20, 17, 3, 11, 4]);
-
-    // Uncomment to make test fail
-    // main(1, 1);
+    let targetWord: [Field; 6] = [ 5, 14, 17, 4, 18, 19 ];
+    let salt: Field = 8946779955419594466110210645034519706377264660042123759416453925324645134281;
+    let session_id: Field = 15687910949534148498003312028041286509965723587810669995876214704755576645678;
+    let pedersen_hash: Field = 10484328263242905534100110666239265618273454041839134139012676170186870765140;
+    let feedback: [Field; 6] = [ 0, 0, 0, 0, 1, 1 ];
+    let userInput: [Field; 6] = [ 0, 1, 2, 3, 4, 5 ];
+    main(targetWord, salt, session_id, pedersen_hash, feedback, userInput);
 }
-
-
 
 #[test]
 fn test_pedersen_hash() {

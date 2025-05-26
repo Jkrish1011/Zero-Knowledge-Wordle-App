@@ -37,6 +37,18 @@ const charToFixedBytes = (char, length = 64) => {
     return paddedBuffer;
 }
 
+// Helper function to convert inputs to proper format for Noir
+function prepareNoirInputs(inputs) {
+    return {
+        targetWord: inputs.targetWord.map(v => v.toString()),
+        salt: inputs.salt.toString(),
+        session_id: inputs.session_id.toString(),
+        pedersen_hash: inputs.pedersen_hash.toString(),
+        feedback: inputs.feedback.map(v => v.toString()),
+        userInput: inputs.userInput.map(v => v.toString())
+    };
+}
+
 const getAlphabeticIndex = (char) => {
     // Ensure input is a single character
     if (typeof char !== 'string' || char.length !== 1) {
@@ -65,8 +77,8 @@ const pickRandomWord = () => {
 const computePedersenCommmitment = async (targetWord, sessionId, salt, bb) => {
 
     const wordInputs = [...targetWord].map(char => {
-        return uint8ArrayToBigIntBE(charToFixedBytes(char)) % Fr.MODULUS;
-    });
+        return getAlphabeticIndex(char);
+    }).map(alphabet => BigInt(alphabet));
     
     const inputs = [
         ...wordInputs,
@@ -75,7 +87,7 @@ const computePedersenCommmitment = async (targetWord, sessionId, salt, bb) => {
     ];
     
     const commitment = await bb.pedersenHash(inputs, 0);
-    return commitment.toString();
+    return {commitment: commitment.toString(), wordInputs: wordInputs};
 };
 
 const checkGuess = (guess, targetWord) => {
@@ -124,5 +136,6 @@ module.exports = {
     randomBytesCrypto,
     checkGuess,
     uint8ArrayToBigIntBE,
-    getAlphabeticIndex
+    getAlphabeticIndex,
+    prepareNoirInputs
 };

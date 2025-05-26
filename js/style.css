@@ -104,3 +104,19 @@ button:hover {
     font-weight: bold;
     margin-top: 10px;
 } 
+
+#proof {
+    min-height: 24px;
+    text-align: center;
+    color: #2fd35b;
+    font-weight: bold;
+    margin-top: 10px;
+} 
+
+#publicInputs {
+    min-height: 24px;
+    text-align: center;
+    color: #2fd35b;
+    font-weight: bold;
+    margin-top: 10px;
+} 

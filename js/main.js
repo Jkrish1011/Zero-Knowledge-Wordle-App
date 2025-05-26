@@ -1,3 +1,7 @@
+import circuit from "/assets/wordle_app.json" assert { type: "json" };
+import { UltraHonkBackend } from "@aztec/bb.js"
+import { Fr } from "@aztec/bb.js";
+
 // Wordle Game Logic
 
 let currentRow = 0;
@@ -5,6 +9,8 @@ let isGameOver = false;
 const MAX_ATTEMPTS = 6;
 const WORD_LENGTH = 6;
 let sessionId = "";
+let proof = "";
+let publicInputs = "";
 
 function createGrid() {
   const grid = document.getElementById("wordle-grid");
@@ -29,6 +35,19 @@ function showMessage(msg, color = null) {
   else messageDiv.style.color = "#d32f2f";
 }
 
+function showProofs(proof, publicInputs) {
+  const proofContainer = document.getElementById("proof-container");
+  const proofDiv = document.getElementById("proof");
+  const publicInputsDiv = document.getElementById("publicInputs");
+  
+  // Show the proof container
+  proofContainer.classList.remove("hidden");
+  
+  // Update the content
+  proofDiv.textContent = JSON.stringify(proof, null, 2);
+  publicInputsDiv.textContent = JSON.stringify(publicInputs, null, 2);
+}
+
 function updateGrid(feedback, attempts, userInput) {
   let guessArr = userInput.split("");
   let letterStatus = feedback.map(status => {
@@ -50,6 +69,41 @@ function updateGrid(feedback, attempts, userInput) {
 
 function clearMessage() {
   showMessage("");
+}
+
+function showLoading() {
+  const loadingContainer = document.getElementById("loading-container");
+  const input = document.getElementById("wordInput");
+  const submitButton = document.querySelector("#wordleForm button[type='submit']");
+  
+  loadingContainer.classList.remove("hidden");
+  input.disabled = true;
+  submitButton.disabled = true;
+}
+
+function hideLoading() {
+  const loadingContainer = document.getElementById("loading-container");
+  const input = document.getElementById("wordInput");
+  const submitButton = document.querySelector("#wordleForm button[type='submit']");
+  
+  loadingContainer.classList.add("hidden");
+  input.disabled = false;
+  submitButton.disabled = false;
+  input.focus();
+}
+
+function showVerifyLoading() {
+  const loadingContainer = document.getElementById("verify-loading-container");
+  const verifyButton = document.querySelector("#verifyProofs");
+  loadingContainer.classList.remove("hidden");
+  verifyButton.disabled = true;
+}
+
+function hideVerifyLoading() {
+  const loadingContainer = document.getElementById("verify-loading-container");
+  const verifyButton = document.querySelector("#verifyProofs");
+  loadingContainer.classList.add("hidden");
+  verifyButton.disabled = false;
 }
 
 async function sendFeedbackData(sessionId, userInput, userSignature) {
@@ -85,6 +139,26 @@ async function sendFeedbackData(sessionId, userInput, userSignature) {
   }
 }
 
+async function verifyProof() {
+  try {
+    console.log({proof, publicInputs});
+    showVerifyLoading();
+    const backend = new UltraHonkBackend(circuit.bytecode);
+    const verified = await backend.verifyProof({proof:proof, publicInputs});
+    console.log({verified});
+    if(verified) {
+      showMessage("Proof verified successfully!", "#388e3c");
+    } else {
+      showMessage("Proof verification failed!", "#d32f2f");
+    }
+  } catch (error) {
+    console.error('Error verifying proof:', error);
+    showMessage("Error verifying proof. Please try again.", "#d32f2f");
+  } finally {
+    hideVerifyLoading();
+  }
+}
+
 async function handleInput(e) {
   e.preventDefault();
   if (isGameOver) return;
@@ -96,17 +170,28 @@ async function handleInput(e) {
     showMessage("Please enter a valid 6-letter word.");
     return;
   }
-  // checkGuess(val);
-  const response = await sendFeedbackData(sessionId, val, "abcdefg");
-  console.log(response);
-  updateGrid(response.data.feedback, response.data.attempts, val);
-  if(response.data.isGameOver && response.data.feedback.every(status => status === 2)) {
-    showMessage(`Game Over! You won!`, "#388e3c");
-    isGameOver = true;
-  }
-  if(response.data.attempts === MAX_ATTEMPTS && !response.data.feedback.every(status => status === 2)) {
-    showMessage(`Game Over! You lost! The word was: ${response.data.targetWord}`, "#d32f2f");
-    isGameOver = true;
+
+  try {
+    showLoading();
+    const response = await sendFeedbackData(sessionId, val, "abcdefg");
+    console.log(response);
+    updateGrid(response.data.feedback, response.data.attempts, val);
+    proof = Uint8Array.from(response.data.proof);
+    publicInputs = response.data.publicInputs;
+    showProofs(proof, publicInputs);
+    
+    if(response.data.isGameOver && response.data.feedback.every(status => status === 2)) {
+      showMessage(`Game Over! You won!`, "#388e3c");
+      isGameOver = true;
+    }
+    if(response.data.attempts === MAX_ATTEMPTS && !response.data.feedback.every(status => status === 2)) {
+      showMessage(`Game Over! You lost! The word was: ${response.data.targetWord}`, "#d32f2f");
+      isGameOver = true;
+    }
+  } catch (error) {
+    showMessage("Error checking your guess. Please try again.", "#d32f2f");
+  } finally {
+    hideLoading();
   }
 }
 
@@ -126,9 +211,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   isGameOver = false;
   clearMessage();
   sessionId = response.data.sessionId;
+  document.getElementById("backendCommitmentValue").textContent = response.data.commitment;
 
   const form = document.getElementById("wordleForm");
   form.addEventListener("submit", handleInput);
+
+  // Add event listener for verify proofs button
+  const verifyButton = document.getElementById("verifyProofs");
+  verifyButton.addEventListener("click", verifyProof);
 });
 
 // Form submission handler

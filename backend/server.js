@@ -9,7 +9,17 @@ const {UltraHonkBackend} = require("@aztec/bb.js");
 const { Noir } = require('@noir-lang/noir_js');
 const circuit = require("./noir_circuit/wordle_app.json");
 
-const { getAlphabeticIndex, pickRandomWord, computePedersenCommmitment, initBarretenberg, checkGuess, randomBytesCrypto, uint8ArrayToBigIntBE } = require('./helper.js');
+const { 
+    getAlphabeticIndex, 
+    pickRandomWord, 
+    computePedersenCommmitment, 
+    initBarretenberg, 
+    checkGuess, 
+    randomBytesCrypto, 
+    uint8ArrayToBigIntBE,
+    prepareNoirInputs
+} = require('./helper.js');
+
 const { MAX_ATTEMPTS } = require('./constants.js');
 
 // Load environment variables
@@ -50,30 +60,23 @@ app.post('/api/check_feedback', async (req, res) => {
         const feedback = checkGuess(userInput, game.targetWord);
         game.attempts++;
 
-        const noir = new Noir(circuit);
+        
         const userInputConverted = userInput.split("").map(char => BigInt(getAlphabeticIndex(char)));
-        const targetWordConverted = game.targetWord.split("").map(char => BigInt(getAlphabeticIndex(char)));
+        const targetWordConverted = game.wordInputs;
         const feedbackConverted = feedback.map(f => BigInt(f)); 
-        console.log({userInputConverted});
-        console.log('Types check:');
-        console.log('targetWord:', targetWordConverted, typeof targetWordConverted[0]);
-        console.log('salt:', BigInt(game.salt), typeof BigInt(game.salt));
-        console.log('session_id:', BigInt(game.sessionId), typeof BigInt(game.sessionId));
-        console.log('pedersen_hash:', BigInt(game.commitment), typeof BigInt(game.commitment));
-        
-        
-        console.log('feedback:', feedbackConverted, typeof feedbackConverted[0]);
-        console.log('userInput:', userInputConverted, typeof userInputConverted[0]);
-        const { witness } = await noir.execute({
+       
+        const noirInputs = {
             targetWord: targetWordConverted,
             salt: BigInt(game.salt),
             session_id: BigInt(game.sessionId),
             pedersen_hash: BigInt(game.commitment), 
             feedback: feedbackConverted, 
             userInput: userInputConverted
-        });
-        
+        };
+        const noirInputsConverted = prepareNoirInputs(noirInputs);
         const backend = new UltraHonkBackend(circuit.bytecode);
+        const noir = new Noir(circuit);
+        const { witness } = await noir.execute(noirInputsConverted);
         const {proof, publicInputs} = await backend.generateProof(witness);
 
         if(feedback.every(status => status === 2)) {
@@ -84,7 +87,7 @@ app.post('/api/check_feedback', async (req, res) => {
                     feedback,
                     attempts: game.attempts,
                     isGameOver: true,
-                    proof: proof,
+                    proof: Array.from(proof),
                     publicInputs: publicInputs
                 }
             });
@@ -98,7 +101,7 @@ app.post('/api/check_feedback', async (req, res) => {
                     attempts: game.attempts,
                     isGameOver: true,
                     targetWord: game.targetWord,
-                    proof: proof,
+                    proof: Array.from(proof),
                     publicInputs: publicInputs
                 }
             });
@@ -109,7 +112,7 @@ app.post('/api/check_feedback', async (req, res) => {
             data: {
                 feedback,
                 attempts: game.attempts,
-                proof: proof,
+                proof: Array.from(proof),
                 publicInputs: publicInputs,
                 isGameOver: (game.attempts === MAX_ATTEMPTS) || (feedback.every(status => status === 2))
             }
@@ -119,7 +122,7 @@ app.post('/api/check_feedback', async (req, res) => {
         console.error('Error:', error);
         return res.status(500).json({
             success: false,
-            message: 'Internal server error',
+            message: 'Couldn\'t calculate feedback.',
             error: error
         });
     }
@@ -129,17 +132,18 @@ app.post('/api/check_feedback', async (req, res) => {
 app.get('/api/start_game', async (req, res) => {
     try {
         const targetWord = pickRandomWord();
-        const sessionId = uint8ArrayToBigIntBE(randomBytesCrypto(64));
-        const salt = uint8ArrayToBigIntBE(randomBytesCrypto(64));
+        const sessionId = uint8ArrayToBigIntBE(randomBytesCrypto(64)) % Fr.MODULUS;
+        const salt = uint8ArrayToBigIntBE(randomBytesCrypto(64)) % Fr.MODULUS;
         console.log("targetWord", targetWord);
         const bb = await initBarretenberg();
-        const pedersenHash = await computePedersenCommmitment(targetWord, sessionId, salt, bb);
+        const {commitment, wordInputs} = await computePedersenCommmitment(targetWord, sessionId, salt, bb);
 
         game_db.push({
             targetWord: targetWord,
             salt: salt.toString(),
             sessionId: sessionId.toString(),
-            commitment:pedersenHash,
+            commitment: commitment,
+            wordInputs: wordInputs,
             attempts: 0
         });
 
@@ -148,7 +152,7 @@ app.get('/api/start_game', async (req, res) => {
             message: 'Game started successfully',
             data: {
                 sessionId: sessionId.toString(),
-                commitment: pedersenHash
+                commitment: commitment
             }
         });
     } catch (error) {

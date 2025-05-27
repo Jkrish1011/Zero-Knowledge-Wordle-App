@@ -13,3 +13,22 @@ Players have up to six attempts to guess the word, with verified feedback guidin
 #### Implementation
 
 Noir: Define the secret word as private inputs and the guess as public inputs. Compute feedback (e.g., green for correct letter and position, yellow for correct letter wrong position) and prove its correctness.
+
+#### Steps to create Verifier.sol
+
+```
+bb write_vk -b ./target/wordle_app.json -o ./target --oracle_hash keccak
+bb write_solidity_verifier -k ./target/vk -o ./target/Verifier.sol
+```
+
+### Steps to run Frontend
+```
+npm install
+npm run dev
+```
+
+### Steps to run Backend
+```
+npm install
+npm run dev
+```

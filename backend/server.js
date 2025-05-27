@@ -73,6 +73,7 @@ app.post('/api/check_feedback', async (req, res) => {
             feedback: feedbackConverted, 
             userInput: userInputConverted
         };
+        
         const noirInputsConverted = prepareNoirInputs(noirInputs);
         const backend = new UltraHonkBackend(circuit.bytecode);
         const noir = new Noir(circuit);
@@ -88,7 +89,9 @@ app.post('/api/check_feedback', async (req, res) => {
                     attempts: game.attempts,
                     isGameOver: true,
                     proof: Array.from(proof),
-                    publicInputs: publicInputs
+                    publicInputs: publicInputs,
+                    targetWord: game.targetWord,
+                    salt: game.salt,
                 }
             });
         }
@@ -102,7 +105,9 @@ app.post('/api/check_feedback', async (req, res) => {
                     isGameOver: true,
                     targetWord: game.targetWord,
                     proof: Array.from(proof),
-                    publicInputs: publicInputs
+                    publicInputs: publicInputs,
+                    targetWord: game.targetWord,
+                    salt: game.salt,
                 }
             });
         }
@@ -114,7 +119,9 @@ app.post('/api/check_feedback', async (req, res) => {
                 attempts: game.attempts,
                 proof: Array.from(proof),
                 publicInputs: publicInputs,
-                isGameOver: (game.attempts === MAX_ATTEMPTS) || (feedback.every(status => status === 2))
+                isGameOver: (game.attempts === MAX_ATTEMPTS) || (feedback.every(status => status === 2)),
+                targetWord: game.targetWord,
+                salt: game.salt,
             }
         });
 

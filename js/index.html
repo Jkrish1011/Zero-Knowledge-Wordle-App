@@ -6,46 +6,65 @@
     <link rel="stylesheet" href="./style.css" />
     <title>Wordle Game</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script type="module" src="/main.js"></script>
   </head>
   <body>
+    <div id="navbar" class="flex flex-col items-center p-4 bg-gray-50 border-b border-gray-200">
+      <div class="flex items-center space-x-4 mb-2">
+        <button id="connectButton" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors">Connect to MetaMask</button>
+        <button id="startGameButton" class="hidden bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition-colors">Start Game</button>
+      </div>
+      <div id="wallet-info" class="hidden flex flex-col items-center space-y-1 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div id="account" class="text-sm font-medium text-gray-700"></div>
+        <div id="chainId" class="text-xs text-gray-500"></div>
+      </div>
+    </div>
     <div class="container">
-      <h1>Wordle - 6 Letter Edition</h1>
-      <div id="wordle-grid"></div>
-      <form id="wordleForm" autocomplete="off">
-        <input type="text" id="wordInput" maxlength="6" autofocus required pattern="[A-Za-z]{6}" placeholder="Enter 6 letter word" />
-        <button type="submit">Guess</button>
-      </form>
-      <div id="message" class="mt-4 text-center font-bold text-red-600"></div>
-      <div id="loading-container" class="hidden mt-4 flex flex-col items-center justify-center">
-        <img src="./assets/reload-cat.gif" alt="Loading..." class="w-16 h-16" />
-        <p class="mt-2 text-gray-600">Checking your guess...</p>
-      </div>
-      <div id="verify-loading-container" class="hidden mt-4 flex flex-col items-center justify-center">
-        <img src="./assets/verify-check.gif" alt="Loading..." class="w-30 h-16" />
-        <p class="mt-2 text-gray-600">Verifying your Proofs...</p>
-      </div>
-
-      <div class="mb-4">
-        <h2 class="text-lg font-semibold text-gray-700 mb-2">Backend Commitment for Current Word</h2>
-        <div id="backendCommitmentValue" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
-      </div>
-      <div id="proof-container" class="hidden mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Proof</label>
-            <textarea id="proof" class="w-full h-64 p-3 bg-gray-100 rounded font-mono text-sm resize-y" readonly></textarea>
+      <h1 class="text-center text-2xl font-bold text-gray-700 mb-4">Wordle - 6 Letter Edition</h1>
+      
+      <!-- Game Content (hidden by default) -->
+      <div id="game-content" class="hidden">
+        <div id="wordle-grid"></div>
+        <form id="wordleForm" autocomplete="off" class="space-y-4">
+          <input type="text" id="wordInput" maxlength="6" autofocus required pattern="[A-Za-z]{6}" placeholder="Enter 6 letter word" />
+          <button id="guessButton" type="submit">Guess</button>  
+        </form>
+        <button id="computeCommitment" class="hidden bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded transition-colors">Compute Commitment</button>
+        <div id="proof-section">
+          <div id="message" class="mt-4 text-center font-bold text-red-600"></div>
+          <div id="loading-container" class="hidden mt-4 flex flex-col items-center justify-center">
+            <img src="./assets/reload-cat.gif" alt="Loading..." class="w-16 h-16" />
+            <p class="mt-2 text-gray-600">Checking your guess...</p>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Public Inputs</label>
-            <textarea id="publicInputs" class="w-full h-64 p-3 bg-gray-100 rounded font-mono text-sm resize-y" readonly></textarea>
+          <div id="verify-loading-container" class="hidden mt-4 flex flex-col items-center justify-center">
+            <img src="./assets/verify-check.gif" alt="Loading..." class="w-30 h-16" />
+            <p class="mt-2 text-gray-600">Verifying your Proofs...</p>
           </div>
-          <button id="verifyProofs" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors">
-            Verify Proofs
-          </button>
+
+          <div class="mb-4">
+            <div id="commitmentVerification" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
+          </div>
+          <div class="mb-4">
+            <h2 class="text-lg font-semibold text-gray-700 mb-2">Commitment for Current Word</h2>
+            <div id="backendCommitmentValue" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
+          </div>
+          <div id="proof-container" class="hidden mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Proof</label>
+                <textarea id="proof" class="w-full h-64 p-3 bg-gray-100 rounded font-mono text-sm resize-y" readonly></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Public Inputs</label>
+                <textarea id="publicInputs" class="w-full h-64 p-3 bg-gray-100 rounded font-mono text-sm resize-y" readonly></textarea>
+              </div>
+              <button id="verifyProofs" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors">
+                Verify Proofs
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    <script type="module" src="/main.js"></script>
   </body>
-</html> 
+</html>

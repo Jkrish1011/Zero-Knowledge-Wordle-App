@@ -1,6 +1,6 @@
 import circuit from "/assets/wordle_app.json" assert { type: "json" };
-import { UltraHonkBackend } from "@aztec/bb.js"
-import { Fr } from "@aztec/bb.js";
+import { UltraHonkBackend } from "@aztec/bb.js";
+import { Barretenberg } from "@aztec/bb.js";
 
 // Wordle Game Logic
 
@@ -11,6 +11,16 @@ const WORD_LENGTH = 6;
 let sessionId = "";
 let proof = "";
 let publicInputs = "";
+let metamaskWallet = "";
+let chainId = "";
+let targetWord = "";
+let salt = "";
+let commitment = "";
+
+const initBarretenberg = async () => {
+  const barretenberg = await Barretenberg.new();
+  return barretenberg;
+}
 
 function createGrid() {
   const grid = document.getElementById("wordle-grid");
@@ -139,6 +149,37 @@ async function sendFeedbackData(sessionId, userInput, userSignature) {
   }
 }
 
+async function startGame(userWallet) {
+  const url = 'http://localhost:3000/api/start_game';
+  const data = {
+    userWallet: userWallet,
+  };
+  console.log({data});
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || response.statusText}`);
+    }
+
+    const responseData = await response.json();
+    console.log('Success:', responseData);
+    return responseData; 
+
+  } catch (err) {
+    console.error('Error sending data:', err);
+    throw err;
+  }
+}
+
 async function verifyProof() {
   try {
     console.log({proof, publicInputs});
@@ -158,6 +199,39 @@ async function verifyProof() {
     hideVerifyLoading();
   }
 }
+
+const getAlphabeticIndex = (char) => {
+  // Ensure input is a single character
+  if (typeof char !== 'string' || char.length !== 1) {
+      throw new Error("not a single character.");
+  }
+
+  // Convert to lowercase to handle both cases (e.g., 'A' and 'a')
+  const lowerChar = char.toLowerCase();
+
+  // Check if it's an alphabet character
+  if (lowerChar >= 'a' && lowerChar <= 'z') {
+      return lowerChar.charCodeAt(0) - 'a'.charCodeAt(0);
+  } else {
+      throw new Error("not an alphabet character.");
+  }
+}
+
+const computePedersenCommmitment = async (targetWord, sessionId, salt) => {
+  const bb = await initBarretenberg();
+  const wordInputs = [...targetWord].map(char => {
+      return getAlphabeticIndex(char);
+  }).map(alphabet => BigInt(alphabet));
+  
+  const inputs = [
+      ...wordInputs,
+      BigInt(sessionId),
+      BigInt(salt)
+  ];
+  
+  const commitment = await bb.pedersenHash(inputs, 0);
+  return {commitment: commitment.toString(), wordInputs: wordInputs};
+};
 
 async function handleInput(e) {
   e.preventDefault();
@@ -185,8 +259,12 @@ async function handleInput(e) {
       isGameOver = true;
     }
     if(response.data.attempts === MAX_ATTEMPTS && !response.data.feedback.every(status => status === 2)) {
-      showMessage(`Game Over! You lost! The word was: ${response.data.targetWord}`, "#d32f2f");
+      showMessage(`Game Over! You lost! The word was: ${response.data.targetWord}. The Salt value is: ${response.data.salt} & the Session ID is: ${sessionId}`, "#d32f2f");
       isGameOver = true;
+      targetWord = response.data.targetWord;
+      salt = response.data.salt;
+      document.getElementById("computeCommitment").classList.remove("hidden");
+      document.getElementById("guessButton").classList.add("hidden");
     }
   } catch (error) {
     showMessage("Error checking your guess. Please try again.", "#d32f2f");
@@ -196,22 +274,46 @@ async function handleInput(e) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  let response = await fetch('http://localhost:3000/api/start_game')
-    .then(response => response.json())
-    .then(data => {
-      console.log(data);
-      return data;
-    })
-    .catch(error => {
-      console.error('Error:', error);
-    });
-  
-  createGrid();
-  currentRow = 0;
-  isGameOver = false;
-  clearMessage();
-  sessionId = response.data.sessionId;
-  document.getElementById("backendCommitmentValue").textContent = response.data.commitment;
+  // let response = await fetch('http://localhost:3000/api/start_game')
+  //   .then(response => response.json())
+  //   .then(data => {
+  //     console.log(data);
+  //     return data;
+  //   })
+  //   .catch(error => {
+  //     console.error('Error:', error);
+  //   });
+
+  // Expose this function to be called from main.js
+  window.updateMetamaskUI = updateUI;
+
+  // Add event listener for MetaMask connect button
+  const connectButton = document.getElementById("connectButton");
+  connectButton.addEventListener("click", connectMetaMask);
+
+  // Start game handler
+  document.getElementById('startGameButton')?.addEventListener('click', async function() {
+    try {
+      const response = await startGame(metamaskWallet);
+      if (response && response.data) {
+        sessionId = response.data.sessionId;
+        document.getElementById("backendCommitmentValue").textContent = response.data.commitment;
+        commitment = response.data.commitment;
+        // Hide start game button and show game content
+        document.getElementById('startGameButton').classList.add('hidden');
+        document.getElementById('game-content').classList.remove('hidden');
+        
+        // Initialize game grid
+        createGrid();
+        currentRow = 0;
+        isGameOver = false;
+        clearMessage();
+      }
+    } catch (error) {
+      console.error('Error starting game:', error);
+      showMessage("Error starting game. Please try again.", "#d32f2f");
+    }
+  });
 
   const form = document.getElementById("wordleForm");
   form.addEventListener("submit", handleInput);
@@ -219,35 +321,62 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Add event listener for verify proofs button
   const verifyButton = document.getElementById("verifyProofs");
   verifyButton.addEventListener("click", verifyProof);
+
+  const computeCommitmentButton = document.getElementById("computeCommitment");
+  computeCommitmentButton.addEventListener("click", computeCommitment);
 });
 
-// Form submission handler
-// window.handleSubmit = async function(event) {
-//     event.preventDefault();
-    
-//     const username = document.getElementById('username').value;
-//     const password = document.getElementById('password').value;
-//     const dob = document.getElementById('dob').value;
-//     const noir = new Noir(circuit);
+async function computeCommitment() {
+  const response = await computePedersenCommmitment(targetWord, sessionId, salt);
+  
+  commitment = response.commitment;
+  document.getElementById("commitmentVerification").textContent = `Commitment Calculated is : ${commitment}`;
+}
 
-//     const { witness } = await noir.execute({
-//         year_of_birth: 1990,
-//         current_year: 2025,
-//     });
-    
-//     const backend = new UltraHonkBackend(circuit.bytecode);
-//     const {proof, publicInputs} = await backend.generateProof(witness);
-    
-//     // Post request to http://localhost:3000/api/register
-//     const response = await fetch('http://localhost:3000/api/register', {
-//         method: 'POST',
-//         headers: {
-//             'Content-Type': 'application/json'
-//         },
-//         body: JSON.stringify({ username: username, password: password, proof: Array.from(proof), publicInputs: publicInputs }),
-//     });
+function updateUI(connected) {
+  const connectButton = document.getElementById('connectButton');
+  const startGameButton = document.getElementById('startGameButton');
+  const gameContent = document.getElementById('game-content');
+  const walletInfo = document.getElementById('wallet-info');
+  if (connected) {
+    // Hide connect button and show start game button
+    connectButton.classList.add('hidden');
+    startGameButton.classList.remove('hidden');
+    // Keep game content hidden until Start Game is clicked
+    gameContent.classList.add('hidden');
+    walletInfo.classList.remove('hidden');
+  } else {
+    // Show connect button and hide start game button
+    connectButton.classList.remove('hidden');
+    startGameButton.classList.add('hidden');
+    // Hide game content
+    gameContent.classList.add('hidden');
+  }
+}
 
-//     const data = await response.json();
-//     console.log(data);
-    
-// }
+async function connectMetaMask() {
+  if (typeof window.ethereum !== 'undefined') {
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const chainIdFromWallet = await window.ethereum.request({ method: 'eth_chainId' });
+      
+      // Update wallet info display
+      // let shortAddress = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
+      document.getElementById('account').textContent = `Wallet: ${accounts[0]}`;
+      document.getElementById('chainId').textContent = `Chain ID: ${parseInt(chainIdFromWallet, 16)}`;
+      
+      // Store wallet info
+      metamaskWallet = accounts[0];
+      chainId = parseInt(chainId, 16);
+      
+      // Update UI to show start game button
+      updateUI(true);
+    } catch (error) {
+      console.error('Error connecting to MetaMask:', error);
+      updateUI(false);
+    }
+  } else {
+    alert('Please install MetaMask!');
+    updateUI(false);
+  }
+}

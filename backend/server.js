@@ -136,8 +136,10 @@ app.post('/api/check_feedback', async (req, res) => {
 });
 
 // Start game route
-app.get('/api/start_game', async (req, res) => {
+app.post('/api/start_game', async (req, res) => {
     try {
+        const { userWallet } = req.body;
+        console.log("userWallet", userWallet);
         const targetWord = pickRandomWord();
         const sessionId = uint8ArrayToBigIntBE(randomBytesCrypto(64)) % Fr.MODULUS;
         const salt = uint8ArrayToBigIntBE(randomBytesCrypto(64)) % Fr.MODULUS;

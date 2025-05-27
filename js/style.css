@@ -17,6 +17,10 @@ label {
     font-weight: bold;
 }
 
+.hidden {
+    display: none;
+}
+
 input {
     width: 100%;
     padding: 8px;
@@ -48,16 +52,16 @@ button:hover {
 
 .wordle-row {
     display: grid;
-    grid-template-columns: repeat(6, 40px);
-    gap: 8px;
+    grid-template-columns: repeat(6, 45px);
+    gap: 10px;
     justify-content: center;
 }
 
 .letter-box {
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     border: 2px solid #ddd;
-    border-radius: 4px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;

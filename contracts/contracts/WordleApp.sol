@@ -58,7 +58,7 @@ contract WordleApp {
         uint256[6] memory feedback, 
         bytes calldata proof, 
         bytes32[] calldata publicInputs, 
-        bytes memory userSignature,
+        // bytes memory userSignature,
         bytes32 commitment
     ) external {
         Session storage currentSession = sessions[sessionId];
@@ -66,9 +66,9 @@ contract WordleApp {
         require(currentSession.player == msg.sender, "Not the player of this session!");
         require(currentSession.attempts < 6, "Game over!");
 
-        bytes32 ethSignedMessage = MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(guess, commitment)));
-        address recoveredSigner = ECDSA.recover(ethSignedMessage, userSignature);
-        require(recoveredSigner == msg.sender, "Invalid signature!");
+        // bytes32 ethSignedMessage = MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(guess, commitment)));
+        // address recoveredSigner = ECDSA.recover(ethSignedMessage, userSignature);
+        // require(recoveredSigner == msg.sender, "Invalid signature!");
         
         require(verifier.verify(proof, publicInputs), "Invalid guess!");
         currentSession.guesses.push(guess);

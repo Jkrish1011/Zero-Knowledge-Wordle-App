@@ -1,4 +1,4 @@
-const { Barretenberg, Fr } = require('@aztec/bb.js');
+const { Barretenberg } = require('@aztec/bb.js');
 const { randomBytes } = require('crypto');
 
 const { WORD_LIST } = require('./words');

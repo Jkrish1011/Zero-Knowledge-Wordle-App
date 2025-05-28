@@ -2,12 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
 const { Fr } = require('@aztec/bb.js');
 const {UltraHonkBackend} = require("@aztec/bb.js");
 const { Noir } = require('@noir-lang/noir_js');
 const circuit = require("./noir_circuit/wordle_app.json");
+const WordleAppInteractor = require('./wordleSmartContractInteractor.js');
 
 const { 
     getAlphabeticIndex, 
@@ -26,6 +25,7 @@ const { MAX_ATTEMPTS } = require('./constants.js');
 dotenv.config();
 
 const app = express();
+const wordleAppInteractor = new WordleAppInteractor();
 
 // Middleware
 const corsOptions = {
@@ -46,7 +46,7 @@ let game_db = [];
 // Check feedback route
 app.post('/api/check_feedback', async (req, res) => {
     try {
-        const { sessionId, userInput, userSignature } = req.body;
+        const { sessionId, userInput,  } = req.body;
 
         // get the target word from the game_db
         const game = game_db.find(game => game.sessionId === sessionId);
@@ -79,6 +79,8 @@ app.post('/api/check_feedback', async (req, res) => {
         const noir = new Noir(circuit);
         const { witness } = await noir.execute(noirInputsConverted);
         const {proof, publicInputs} = await backend.generateProof(witness);
+
+        let receipt = await wordleAppInteractor.verifyGuess(sessionId, userInput, feedback, Array.from(proof), publicInputs, game.commitment);
 
         if(feedback.every(status => status === 2)) {
             return res.status(200).json({
@@ -119,7 +121,10 @@ app.post('/api/check_feedback', async (req, res) => {
                 attempts: game.attempts,
                 proof: Array.from(proof),
                 publicInputs: publicInputs,
-                isGameOver: (game.attempts === MAX_ATTEMPTS) || (feedback.every(status => status === 2))
+                isGameOver: (game.attempts === MAX_ATTEMPTS) || (feedback.every(status => status === 2)),
+                transactionHash: receipt.hash,
+                blockHash: receipt.blockHash,
+                blockNumber: receipt.blockNumber
             }
         });
 
@@ -153,15 +158,43 @@ app.post('/api/start_game', async (req, res) => {
             wordInputs: wordInputs,
             attempts: 0
         });
-
-        return res.status(200).json({
-            success: true,
-            message: 'Game started successfully',
-            data: {
-                sessionId: sessionId.toString(),
-                commitment: commitment
+        console.log("Starting game session");
+        try {
+            let receipt = await wordleAppInteractor.startSession(sessionId, commitment);
+            
+            // Verify the transaction was successful
+            if (!receipt || !receipt.status) {
+                throw new Error('Transaction failed or status is unknown');
             }
-        });
+
+            return res.status(200).json({
+                success: true,
+                message: 'Game started successfully',
+                data: {
+                    sessionId: sessionId.toString(),
+                    commitment: commitment,
+                    transactionHash: receipt.hash,
+                    blockHash: receipt.blockHash,
+                    blockNumber: receipt.blockNumber
+                }
+            });
+        } catch (error) {
+            console.error('Transaction error:', error);
+            // If we have a transaction hash but the receipt failed, we can still return partial success
+            if (error.transactionHash) {
+                return res.status(202).json({
+                    success: true,
+                    message: 'Transaction sent but confirmation pending',
+                    data: {
+                        sessionId: sessionId.toString(),
+                        commitment: commitment,
+                        transactionHash: error.transactionHash,
+                        status: 'pending'
+                    }
+                });
+            }
+            throw error; // Re-throw other errors to be caught by the outer try-catch
+        }
     } catch (error) {
         console.error('Couldn\'t start game:', error);
         return res.status(500).json({

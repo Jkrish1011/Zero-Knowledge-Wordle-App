@@ -102,6 +102,20 @@ function hideLoading() {
   input.focus();
 }
 
+function showGameStartLoading() {
+  const loadingContainer = document.getElementById("game-start-container");
+  loadingContainer.classList.remove("hidden");
+  const startGameButton = document.getElementById("startGameButton");
+  startGameButton.disabled = true;
+}
+
+function hideGameStartLoading() {
+  const loadingContainer = document.getElementById("game-start-container");
+  loadingContainer.classList.add("hidden");
+  const startGameButton = document.getElementById("startGameButton");
+  startGameButton.disabled = false;
+}
+
 function showVerifyLoading() {
   const loadingContainer = document.getElementById("verify-loading-container");
   const verifyButton = document.querySelector("#verifyProofs");
@@ -116,12 +130,11 @@ function hideVerifyLoading() {
   verifyButton.disabled = false;
 }
 
-async function sendFeedbackData(sessionId, userInput, userSignature) {
+async function sendFeedbackData(sessionId, userInput) {
   const url = 'http://localhost:3000/api/check_feedback';
   const data = {
     sessionId: sessionId,
     userInput: userInput,
-    userSignature: userSignature
   };
   console.log({data});
 
@@ -150,6 +163,7 @@ async function sendFeedbackData(sessionId, userInput, userSignature) {
 }
 
 async function startGame(userWallet) {
+  showGameStartLoading();
   const url = 'http://localhost:3000/api/start_game';
   const data = {
     userWallet: userWallet,
@@ -177,6 +191,8 @@ async function startGame(userWallet) {
   } catch (err) {
     console.error('Error sending data:', err);
     throw err;
+  } finally {
+    hideGameStartLoading();
   }
 }
 
@@ -247,7 +263,7 @@ async function handleInput(e) {
 
   try {
     showLoading();
-    const response = await sendFeedbackData(sessionId, val, "abcdefg");
+    const response = await sendFeedbackData(sessionId, val);
     console.log(response);
     updateGrid(response.data.feedback, response.data.attempts, val);
     proof = Uint8Array.from(response.data.proof);
@@ -274,16 +290,7 @@ async function handleInput(e) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // let response = await fetch('http://localhost:3000/api/start_game')
-  //   .then(response => response.json())
-  //   .then(data => {
-  //     console.log(data);
-  //     return data;
-  //   })
-  //   .catch(error => {
-  //     console.error('Error:', error);
-  //   });
-
+  
   // Expose this function to be called from main.js
   window.updateMetamaskUI = updateUI;
 
@@ -299,6 +306,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         sessionId = response.data.sessionId;
         document.getElementById("backendCommitmentValue").textContent = response.data.commitment;
         commitment = response.data.commitment;
+        
+        // Clear any existing transaction hashes
+        const container = document.getElementById('transaction-hashes');
+        container.innerHTML = '';
+        
+        // Add the start session transaction hash
+        if (response.data.transactionHash) {
+            createTransactionHashLink(response.data.transactionHash, 'Start Session:');
+        }
+        
         // Hide start game button and show game content
         document.getElementById('startGameButton').classList.add('hidden');
         document.getElementById('game-content').classList.remove('hidden');
@@ -379,4 +396,28 @@ async function connectMetaMask() {
     alert('Please install MetaMask!');
     updateUI(false);
   }
+}
+
+function createTransactionHashLink(txHash, label = '') {
+    const container = document.getElementById('transaction-hashes');
+    const linkContainer = document.createElement('div');
+    linkContainer.className = 'flex items-center space-x-2';
+    
+    if (label) {
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'text-sm text-gray-600';
+        labelSpan.textContent = label;
+        linkContainer.appendChild(labelSpan);
+    }
+    
+    const link = document.createElement('a');
+    link.href = `https://sepolia.etherscan.io/tx/${txHash}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.className = 'p-2 bg-gray-100 rounded font-mono text-sm break-all block text-blue-600 hover:text-blue-800 hover:underline flex-1';
+    link.textContent = txHash;
+    
+    linkContainer.appendChild(link);
+    container.appendChild(linkContainer);
+    return linkContainer;
 }

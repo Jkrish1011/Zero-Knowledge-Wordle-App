@@ -21,7 +21,10 @@
     </div>
     <div class="container">
       <h1 class="text-center text-2xl font-bold text-gray-700 mb-4">Wordle - 6 Letter Edition</h1>
-      
+      <div id="game-start-container" class="hidden mt-4 flex flex-col items-center justify-center">
+        <img src="./assets/wordle.gif" alt="Loading..." class="w-40 h-40" />
+        <p class="mt-2 text-gray-600">Starting the game...</p>
+      </div>
       <!-- Game Content (hidden by default) -->
       <div id="game-content" class="hidden">
         <div id="wordle-grid"></div>
@@ -47,6 +50,10 @@
           <div class="mb-4">
             <h2 class="text-lg font-semibold text-gray-700 mb-2">Commitment for Current Word</h2>
             <div id="backendCommitmentValue" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
+          </div>
+          <div id="transaction-hash-container" class="mb-4">
+            <h2 class="text-lg font-semibold text-gray-700 mb-2">Transaction Hashes</h2>
+            <div id="transaction-hashes" class="space-y-2"></div>
           </div>
           <div id="proof-container" class="hidden mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div class="space-y-4">

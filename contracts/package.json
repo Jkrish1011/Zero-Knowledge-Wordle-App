@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "npx hardhat compile",
+    "deploy": "npx hardhat run scripts/deploy.js --network sepolia",
+    "deploy:verifier": "npx hardhat run scripts/deploy-verifier-only.js --network sepolia",
+    "deploy:wordleapp": "npx hardhat run scripts/deploy-wordleapp-only.js --network sepolia",
+    "check": "npx hardhat run scripts/check-deployment.js --network sepolia",
+    "interact": "npx hardhat run scripts/interact.js --network sepolia",
+    "verify": "npx hardhat verify --network sepolia",
+    "test": "npx hardhat test",
+    "node": "npx hardhat node"
   },
   "author": "",
   "license": "ISC",

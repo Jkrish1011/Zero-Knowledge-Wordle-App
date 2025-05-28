@@ -16,6 +16,8 @@ contract WordleApp {
         uint8 attempts;
         uint256[6][] feedback;
         uint256[6][] guesses;
+        uint256[6] word;
+        bytes32 salt;
     }
 
     mapping(uint256 => Session) public sessions;
@@ -24,12 +26,12 @@ contract WordleApp {
     event GuessMade(uint256 sessionId, uint256[6] guess, uint256[6] feedback);
     event GameWon(uint256 sessionId, address player, bytes32 commitment);
     event GameLost(uint256 sessionId, address player, bytes32 commitment);
+    event WordReveal(uint256 sessionId, uint256[6] word, bytes32 salt);
 
     constructor(address _verifier) {
         verifier = IVerifier(_verifier);
     }
 
-    // 
     function isGameOver(uint256[6] memory feedback) internal pure returns (bool) {
         for (uint i = 0; i < 6; i++) {
             if (feedback[i] != 2) return false;
@@ -45,7 +47,9 @@ contract WordleApp {
             commitment: commitment,
             attempts: 0,
             feedback: new uint256[6][](0),
-            guesses: new uint256[6][](0)
+            guesses: new uint256[6][](0),
+            word: [uint256(0), uint256(0), uint256(0), uint256(0), uint256(0), uint256(0)],
+            salt: bytes32(0)
         });
 
         sessions[sessionId] = currentSession;
@@ -83,5 +87,18 @@ contract WordleApp {
 
         // Update the attempts
         currentSession.attempts++;
+
+        if (currentSession.attempts == 6 && !userWon) {
+            emit GameLost(sessionId, msg.sender, commitment);
+        }
+    }
+
+    function revealWord(uint256 sessionId, uint256[6] memory word, bytes32 salt) external {
+        Session storage currentSession = sessions[sessionId];
+        require(currentSession.player != (address(0)), "Session not started!");
+        require(currentSession.attempts == 6, "Game not over!");
+        currentSession.word = word;
+        currentSession.salt = salt;
+        emit WordReveal(sessionId, word, salt);
     }
 }

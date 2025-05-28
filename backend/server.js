@@ -119,9 +119,7 @@ app.post('/api/check_feedback', async (req, res) => {
                 attempts: game.attempts,
                 proof: Array.from(proof),
                 publicInputs: publicInputs,
-                isGameOver: (game.attempts === MAX_ATTEMPTS) || (feedback.every(status => status === 2)),
-                targetWord: game.targetWord,
-                salt: game.salt,
+                isGameOver: (game.attempts === MAX_ATTEMPTS) || (feedback.every(status => status === 2))
             }
         });
 

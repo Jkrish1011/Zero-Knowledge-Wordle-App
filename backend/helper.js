@@ -75,6 +75,59 @@ const getAlphabeticIndex = (char) => {
     }
 }
 
+const convertInputsForContract = (sessionId, userInputConverted, feedback, proof, publicInputs, commitment) => {
+    // 1. sessionId: string → uint256
+    const sessionIdBN = BigInt(sessionId);
+    
+    // 2. userInputConverted: object containing bigint → uint256[6]
+    // Assuming userInputConverted is an array-like object or has numeric keys
+    const guessArray = [];
+    for (let i = 0; i < 6; i++) {
+        guessArray.push(BigInt(userInputConverted[i])); 
+    }
+    
+    // 3. feedback: object containing number → uint256[6]
+    const feedbackArray = [];
+    for (let i = 0; i < 6; i++) {
+        feedbackArray.push(BigInt(feedback[i])); // Convert number to bigint
+    }
+    
+    // 4. proof: object containing number → bytes
+    // Convert array of numbers to bytes
+    const proofArray = [];
+    for (let key in proof) {
+        proofArray.push(proof[key]);
+    }
+    const proofBytes = new Uint8Array(proofArray);
+    const proofHex = ethers.hexlify(proofBytes);
+    
+    // 5. publicInputs: object containing string → bytes32[]
+    const publicInputsArray = [];
+    for (let key in publicInputs) {
+        // Ensure each string is properly formatted as bytes32
+        const input = publicInputs[key];
+        // If it's already a hex string, use it; otherwise convert
+        const bytes32Value = ethers.isHexString(input) && input.length === 66 
+            ? input 
+            : ethers.zeroPadValue(ethers.toBeHex(input), 32);
+        publicInputsArray.push(bytes32Value);
+    }
+    
+    // 6. commitment: string → bytes32
+    const commitmentBytes32 = ethers.isHexString(commitment) && commitment.length === 66
+        ? commitment
+        : ethers.zeroPadValue(ethers.toBeHex(commitment), 32);
+    
+    return {
+        _sessionId: sessionIdBN,
+        _userInputConverted: guessArray,
+        _feedback: feedbackArray,
+        _proof: proofHex,
+        _publicInputs: publicInputsArray,
+        _commitment: commitmentBytes32
+    };
+}
+
 
 const pickRandomWord = () => {
     // Only use words with exactly 6 letters
@@ -94,6 +147,7 @@ const computePedersenCommmitment = async (targetWord, sessionId, salt, bb) => {
         sessionId,
         salt
     ];
+    console.log(inputs);
     
     const commitment = await bb.pedersenHash(inputs, 0);
     return {commitment: commitment.toString(), wordInputs: wordInputs};
@@ -146,5 +200,6 @@ module.exports = {
     checkGuess,
     uint8ArrayToBigIntBE,
     getAlphabeticIndex,
-    prepareNoirInputs
+    prepareNoirInputs,
+    convertInputsForContract
 };

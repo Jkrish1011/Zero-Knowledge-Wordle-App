@@ -1,6 +1,7 @@
 import circuit from "/assets/wordle_app.json" assert { type: "json" };
 import { UltraHonkBackend } from "@aztec/bb.js";
 import { Barretenberg } from "@aztec/bb.js";
+import { WordleAppInteractor, convertInputsForContract } from "./wordleSmartContractInteractor.js";
 
 // Wordle Game Logic
 
@@ -16,6 +17,9 @@ let chainId = "";
 let targetWord = "";
 let salt = "";
 let commitment = "";
+let currentFeedback = [];
+let currentUserInput = [];
+let wordleApp;
 
 const initBarretenberg = async () => {
   const barretenberg = await Barretenberg.new();
@@ -54,8 +58,8 @@ function showProofs(proof, publicInputs) {
   proofContainer.classList.remove("hidden");
   
   // Update the content
-  proofDiv.textContent = JSON.stringify(proof, null, 2);
-  publicInputsDiv.textContent = JSON.stringify(publicInputs, null, 2);
+  proofDiv.textContent = proof;
+  publicInputsDiv.textContent = publicInputs;
 }
 
 function updateGrid(feedback, attempts, userInput) {
@@ -201,8 +205,13 @@ async function verifyProof() {
     console.log({proof, publicInputs});
     showVerifyLoading();
     const backend = new UltraHonkBackend(circuit.bytecode);
-    const verified = await backend.verifyProof({proof:proof, publicInputs});
-    console.log({verified});
+    console.log('checking proofs...')
+    // const verified = await backend.verifyProof({proof, publicInputs});
+    // console.log({verified});
+    const inputsForContract = convertInputsForContract(sessionId, currentUserInput, currentFeedback, proof, publicInputs, commitment);
+    console.log(inputsForContract._sessionId, inputsForContract._userInputConverted, inputsForContract._feedback, inputsForContract._proof, inputsForContract._publicInputs, inputsForContract._commitment);
+    let contractVerification = await wordleApp.verifyGuess(inputsForContract._sessionId, inputsForContract._userInputConverted, inputsForContract._feedback, inputsForContract._proof, inputsForContract._publicInputs, inputsForContract._commitment);
+    console.log(contractVerification);
     if(verified) {
       showMessage("Proof verified successfully!", "#388e3c");
     } else {
@@ -268,6 +277,9 @@ async function handleInput(e) {
     updateGrid(response.data.feedback, response.data.attempts, val);
     proof = Uint8Array.from(response.data.proof);
     publicInputs = response.data.publicInputs;
+    currentFeedback = response.data.feedback;
+    currentUserInput = val.split("").map(char => BigInt(getAlphabeticIndex(char)));
+    console.log({proof, publicInputs, currentFeedback, currentUserInput});
     showProofs(proof, publicInputs);
     
     if(response.data.isGameOver && response.data.feedback.every(status => status === 2)) {
@@ -293,6 +305,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   // Expose this function to be called from main.js
   window.updateMetamaskUI = updateUI;
+
+  wordleApp = await WordleAppInteractor.createWithMetamask();
 
   // Add event listener for MetaMask connect button
   const connectButton = document.getElementById("connectButton");

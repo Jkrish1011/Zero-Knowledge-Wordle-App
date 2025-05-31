@@ -5,8 +5,8 @@ async function main() {
     // 0x79e5d84E7cD09D8a6e83988986bC07F489164A9A - HonkVerifier
     // 0x26912B21075324F3a71f6AADFA6cA5581A81a2A7 - WordleApp
     // Get the deployer account
-    const [deployer] = await hre.ethers.getSigners();
-    console.log("Deploying contracts with account:", deployer.address);
+    const deployer = await hre.ethers.getSigners();
+    console.log("Deploying contracts with account:", deployer[0].address);
     
     // Check balance
     const balance = await hre.ethers.provider.getBalance(deployer.address);

@@ -12,11 +12,11 @@ class WordleAppInteractor {
         this.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, this.wallet);
     }
 
-    async startSession(sessionId, commitment) {
+    async startSession(sessionId, player, commitment) {
         try {
             const tx = await this.contract.startSession(
                 sessionId,
-                this.wallet.address,
+                player,
                 commitment
             );
             
@@ -59,6 +59,23 @@ class WordleAppInteractor {
             )
         ]);
         return receipt;
+    }
+
+    async estimateVerifyGuess(sessionId, guess, feedback, proof, publicInputs, commitment) {
+        try {
+            const gasEstimate = await this.contract.estimateGas.verifyGuess(
+                sessionId,
+                guess,
+                feedback,
+                proof,
+                publicInputs,
+                commitment
+            );
+            return gasEstimate;
+        } catch (error) {
+            console.error("Gas estimation failed:", error);
+            throw error;
+        }
     }
 
     async revealWord(sessionId, word, salt) {

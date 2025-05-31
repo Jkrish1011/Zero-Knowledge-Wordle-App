@@ -73,11 +73,11 @@ unconstrained fn compute_feedback(targetWord: [Field;6], mut usedWord: [Field;6]
 
 #[test]
 fn test_main() {
-    let targetWord: [Field; 6] = [ 5, 14, 17, 4, 18, 19 ];
-    let salt: Field = 8946779955419594466110210645034519706377264660042123759416453925324645134281;
-    let session_id: Field = 15687910949534148498003312028041286509965723587810669995876214704755576645678;
-    let pedersen_hash: Field = 10484328263242905534100110666239265618273454041839134139012676170186870765140;
-    let feedback: [Field; 6] = [ 0, 0, 0, 0, 1, 1 ];
+    let targetWord: [Field; 6] = [ 1, 0, 13, 6, 0, 11 ];
+    let salt: Field = 13083945271189110709744636400422107074264990828589878067000759969168725477810;
+    let session_id: Field = 12203592687678091783876240022125620672640955115307437466529444647139030461306;
+    let pedersen_hash: Field = 0x077ecea855ea6060851560b6c4b474e55e96af5429a341ee6ddc5a3881263ccc;
+    let feedback: [Field; 6] = [ 1, 1, 0, 0, 0, 0 ];
     let userInput: [Field; 6] = [ 0, 1, 2, 3, 4, 5 ];
     main(targetWord, salt, session_id, pedersen_hash, feedback, userInput);
 }

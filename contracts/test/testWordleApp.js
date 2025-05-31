@@ -14673,6 +14673,6 @@ describe("WordleApp", function () {
     
     const proofBytes = "0x" + proof.map(n => n.toString(16).padStart(2, '0')).join("");
 
-    await wordleApp.verifyGuess(sessionId.toString(), guess, feedback, proofBytes, publicInputs, commitment);
+    await wordleApp.verifyGuess(sessionId.toString(), guess, feedback, proofBytes, publicInputs, commitment.toString());
   });
 });

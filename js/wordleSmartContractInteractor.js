@@ -139,12 +139,12 @@ export class WordleAppInteractor {
 
 
 export const convertInputsForContract = (sessionId, userInputConverted, feedback, proof, publicInputs, commitment) => {
-    console.log('Debug inputs:', {
+    console.log('Debug raw inputs:', {
         sessionId,
         userInputConverted,
         feedback,
-        proof: proof ? 'exists' : 'undefined',
-        publicInputs: publicInputs ? 'exists' : 'undefined',
+        proof: proof ? `Array of length ${Object.keys(proof).length}` : 'undefined',
+        publicInputs: publicInputs ? `Array of length ${Object.keys(publicInputs).length}` : 'undefined',
         commitment
     });
 
@@ -195,8 +195,8 @@ export const convertInputsForContract = (sessionId, userInputConverted, feedback
     const commitmentBytes32 = ethers.isHexString(commitment) && commitment.length === 66
         ? commitment
         : ethers.zeroPadValue(ethers.toBeHex(commitment), 32);
-    
-    return {
+
+    const result = {
         _sessionId: sessionIdBN,
         _userInputConverted: guessArray,
         _feedback: feedbackArray,
@@ -204,4 +204,15 @@ export const convertInputsForContract = (sessionId, userInputConverted, feedback
         _publicInputs: publicInputsArray,
         _commitment: commitmentBytes32
     };
+
+    console.log('Debug converted inputs:', {
+        sessionId: result._sessionId.toString(),
+        guess: result._userInputConverted.map(x => x.toString()),
+        feedback: result._feedback.map(x => x.toString()),
+        proofLength: result._proof,
+        publicInputsLength: result._publicInputs,
+        commitment: result._commitment
+    });
+
+    return result;
 }

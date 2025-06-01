@@ -206,12 +206,18 @@ async function verifyProof() {
     showVerifyLoading();
     const backend = new UltraHonkBackend(circuit.bytecode);
     console.log('checking proofs...')
-    // const verified = await backend.verifyProof({proof, publicInputs});
-    // console.log({verified});
-    const inputsForContract = convertInputsForContract(sessionId, currentUserInput, currentFeedback, proof, publicInputs, commitment);
-    console.log(inputsForContract._sessionId, inputsForContract._userInputConverted, inputsForContract._feedback, inputsForContract._proof, inputsForContract._publicInputs, inputsForContract._commitment);
-    let contractVerification = await wordleApp.verifyGuess(inputsForContract._sessionId, inputsForContract._userInputConverted, inputsForContract._feedback, inputsForContract._proof, inputsForContract._publicInputs, inputsForContract._commitment);
-    console.log(contractVerification);
+    const verified = await backend.verifyProof({proof, publicInputs}, {keccak: true});
+    console.log({verified});
+    // const inputsForContract = convertInputsForContract(sessionId, currentUserInput, currentFeedback, proof, publicInputs, commitment);
+    // console.log(inputsForContract._sessionId, inputsForContract._userInputConverted, inputsForContract._feedback, inputsForContract._proof, inputsForContract._publicInputs, inputsForContract._commitment);
+
+    let contractVerification = await wordleApp.verifyGuess(sessionId, currentUserInput, currentFeedback.map(v => BigInt(v)), proof, publicInputs, commitment);
+    console.log({contractVerification});
+
+    if (contractVerification.hash) {
+      createTransactionHashLink(contractVerification.hash, 'Verify Guess:');
+    }
+
     if(verified) {
       showMessage("Proof verified successfully!", "#388e3c");
     } else {

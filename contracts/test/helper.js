@@ -2,20 +2,13 @@ const { Barretenberg } = require('@aztec/bb.js');
 const { randomBytes } = require('crypto');
 
 const { WORD_LIST } = require('./words');
-const { WORD_LENGTH, CONTRACT_ADDRESS } = require('./constants');
-const wordleAppAbi = require("./abi/WordleApp.json");
+const WORD_LENGTH = 6;
 
 const { ethers } = require('ethers');
 
 const initBarretenberg = async () => {
     const barretenberg = await Barretenberg.new();
     return barretenberg;
-}
-
-const initWordleApp = async () => {
-    const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-    const wordleApp = new ethers.Contract(CONTRACT_ADDRESS, wordleAppAbi, provider);
-    return wordleApp;
 }
 
 const randomBytesCrypto = (len) => {

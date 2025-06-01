@@ -117,7 +117,7 @@ app.post('/api/check_feedback', async (req, res) => {
         //     _publicInputs,
         //     _commitment
         // );
-        console.log({proof});
+        
         let receipt = {
             hash: "0x123",
             blockHash: "0x123",

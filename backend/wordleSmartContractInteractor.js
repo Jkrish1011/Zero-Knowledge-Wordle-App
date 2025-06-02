@@ -3,7 +3,7 @@ require("dotenv").config();
 
 // Contract details
 const CONTRACT_ABI = require("./abi/WordleApp.json").abi;
-const CONTRACT_ADDRESS = "0x26912B21075324F3a71f6AADFA6cA5581A81a2A7";
+const CONTRACT_ADDRESS = "0xA2C5488dcCd2601B5B3AFA05136CDC18D387630B";
 
 class WordleAppInteractor {
     constructor() {
@@ -96,6 +96,30 @@ class WordleAppInteractor {
             )
         ]);
         return receipt;
+    }
+
+    async updateSession(sessionId, feedback, guess) {
+        const tx = await this.contract.updateSession(sessionId, feedback, guess);
+         // Wait for transaction with a timeout
+         const receipt = await Promise.race([
+            tx.wait(),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Transaction confirmation timeout')), 60000)
+            )
+        ]);
+        return receipt;
+    }
+
+    async checkIfGameOver(sessionId) {
+        const tx = await this.contract.checkIfGameOver(sessionId);
+         // Wait for transaction with a timeout
+         const receipt = await Promise.race([
+            tx.wait(),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Transaction confirmation timeout')), 60000)
+            )
+        ]);
+        return tx;
     }
 
     async getSession(sessionId) {

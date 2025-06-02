@@ -2,7 +2,7 @@ import CONTRACT_ABI_FULL from "./abi/WordleApp.json" assert { type: "json" };
 import { ethers } from "ethers";
 
 // Contract details
-const CONTRACT_ADDRESS = "0x26912B21075324F3a71f6AADFA6cA5581A81a2A7";
+const CONTRACT_ADDRESS = "0xA2C5488dcCd2601B5B3AFA05136CDC18D387630B";
 // You'll need to define your ABI here or load it from a file
 const CONTRACT_ABI = CONTRACT_ABI_FULL.abi;
 

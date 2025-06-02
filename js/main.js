@@ -200,6 +200,32 @@ async function startGame(userWallet) {
   }
 }
 
+async function verifyProofOnChain() {
+  try {
+    console.log({proof, publicInputs});
+    showVerifyLoading();
+    console.log('checking proofs onchain...')
+
+    let contractVerification = await wordleApp.verifyGuess(sessionId, currentUserInput, currentFeedback.map(v => BigInt(v)), proof, publicInputs, commitment);
+    console.log({contractVerification});
+
+    if (contractVerification.hash) {
+      createTransactionHashLink(contractVerification.hash, 'Verify Guess:');
+    }
+    showMessage(".......", "#ffe");
+    if(contractVerification.hash) {
+      showMessage("Proof verified onchain successfully!", "#388e3c");
+    } else {
+      showMessage("Proof verification onchain failed!", "#d32f2f");
+    }
+  } catch (error) {
+    console.error('Error verifying proof onchain:', error);
+    showMessage("Error verifying proof onchain. Please try again.", "#d32f2f");
+  } finally {
+    hideVerifyLoading();
+  }
+}
+
 async function verifyProof() {
   try {
     console.log({proof, publicInputs});
@@ -208,16 +234,7 @@ async function verifyProof() {
     console.log('checking proofs...')
     const verified = await backend.verifyProof({proof, publicInputs}, {keccak: true});
     console.log({verified});
-    // const inputsForContract = convertInputsForContract(sessionId, currentUserInput, currentFeedback, proof, publicInputs, commitment);
-    // console.log(inputsForContract._sessionId, inputsForContract._userInputConverted, inputsForContract._feedback, inputsForContract._proof, inputsForContract._publicInputs, inputsForContract._commitment);
-
-    let contractVerification = await wordleApp.verifyGuess(sessionId, currentUserInput, currentFeedback.map(v => BigInt(v)), proof, publicInputs, commitment);
-    console.log({contractVerification});
-
-    if (contractVerification.hash) {
-      createTransactionHashLink(contractVerification.hash, 'Verify Guess:');
-    }
-
+    showMessage(".......", "#ffe");
     if(verified) {
       showMessage("Proof verified successfully!", "#388e3c");
     } else {
@@ -359,11 +376,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const verifyButton = document.getElementById("verifyProofs");
   verifyButton.addEventListener("click", verifyProof);
 
+  const verifyButtonOnChain = document.getElementById("verifyProofsOnChain");
+  verifyButtonOnChain.addEventListener("click", verifyProofOnChain);
+
   const computeCommitmentButton = document.getElementById("computeCommitment");
   computeCommitmentButton.addEventListener("click", computeCommitment);
 });
 
 async function computeCommitment() {
+  console.log("computeCommitment");
+  console.log({targetWord, sessionId, salt});
   const response = await computePedersenCommmitment(targetWord, sessionId, salt);
   
   commitment = response.commitment;

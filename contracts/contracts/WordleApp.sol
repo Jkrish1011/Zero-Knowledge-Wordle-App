@@ -4,9 +4,10 @@ pragma solidity >=0.8.21;
 import "./Verifier.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 
-contract WordleApp {
+contract WordleApp is Ownable {
     IVerifier public immutable verifier;
 
     struct Session {
@@ -23,12 +24,13 @@ contract WordleApp {
     mapping(uint256 => Session) public sessions;
 
     event SessionStarted(uint256 sessionId, address player, bytes32 commitment);
-    event GuessMade(uint256 sessionId, uint256[6] guess, uint256[6] feedback);
+    event SessionUpdated(uint256 sessionId, uint256[6] feedback, uint256[6] guess);
+    event VerifyGuess(uint256 sessionId, uint256[6] guess, uint256[6] feedback, bytes32 commitment);
     event GameWon(uint256 sessionId, address player, bytes32 commitment);
     event GameLost(uint256 sessionId, address player, bytes32 commitment);
     event WordReveal(uint256 sessionId, uint256[6] word, uint256 salt);
 
-    constructor(address _verifier) {
+    constructor(address _verifier, address _owner) Ownable(_owner) {
         verifier = IVerifier(_verifier);
     }
 
@@ -39,7 +41,7 @@ contract WordleApp {
         return true;
     }
 
-    function startSession(uint256 sessionId, address player, bytes32 commitment) external {
+    function startSession(uint256 sessionId, address player, bytes32 commitment) onlyOwner external  {
         require(sessions[sessionId].player == (address(0)), "Session already started!");
         Session memory currentSession = Session({
             sessionId: sessionId,
@@ -56,14 +58,31 @@ contract WordleApp {
         emit SessionStarted(sessionId, player, commitment);
     }
 
-    function updateSession(uint256 sessionId, uint256[6] memory feedback, uint256[6] memory guess) external {
-         Session storage currentSession = sessions[sessionId];
+    function updateSession(uint256 sessionId, uint256[6] memory feedback, uint256[6] memory guess) onlyOwner external {
+        Session storage currentSession = sessions[sessionId];
         require(currentSession.player != (address(0)), "Session not started!");
-        require(currentSession.player == msg.sender, "Not the player of this session!");
         require(currentSession.attempts < 6, "Game over!");
         currentSession.attempts++;
         currentSession.feedback.push(feedback);
         currentSession.guesses.push(guess);
+
+        emit SessionUpdated(sessionId, feedback, guess);
+    }
+
+    function checkIfGameOver(uint256 sessionId) external returns (bool) {
+        Session storage currentSession = sessions[sessionId];
+        require(currentSession.player != (address(0)), "Session not started!");
+        require(currentSession.attempts < 6, "Game over!");
+
+        bool userWon = isGameOver(currentSession.feedback[currentSession.attempts]);
+
+        if (userWon) {
+            emit GameWon(sessionId, msg.sender, currentSession.commitment);
+        } else {
+            emit GameLost(sessionId, msg.sender, currentSession.commitment);
+        }
+
+        return userWon;
     }
 
     function verifyGuess(
@@ -77,38 +96,23 @@ contract WordleApp {
     ) external {
         Session storage currentSession = sessions[sessionId];
         require(currentSession.player != (address(0)), "Session not started!");
-        require(currentSession.player == msg.sender, "Not the player of this session!");
-        require(currentSession.attempts < 6, "Game over!");
 
         // bytes32 ethSignedMessage = MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(guess, commitment)));
         // address recoveredSigner = ECDSA.recover(ethSignedMessage, userSignature);
         // require(recoveredSigner == msg.sender, "Invalid signature!");
         
         require(verifier.verify(proof, publicInputs), "Invalid guess!");
-        currentSession.guesses.push(guess);
-        currentSession.feedback.push(feedback);
-        emit GuessMade(sessionId, guess, feedback);
 
-        bool userWon = isGameOver(feedback);
-
-        if (currentSession.attempts <= 6 && userWon) {
-            emit GameWon(sessionId, msg.sender, commitment);
-        }
-
-        // Update the attempts
-        currentSession.attempts++;
-
-        if (currentSession.attempts == 6 && !userWon) {
-            emit GameLost(sessionId, msg.sender, commitment);
-        }
+        emit VerifyGuess(sessionId, guess, feedback, commitment);
     }
 
-    function revealWord(uint256 sessionId, uint256[6] memory word, uint256 salt) external {
+    function revealWord(uint256 sessionId, uint256[6] memory word, uint256 salt) onlyOwner external {
         Session storage currentSession = sessions[sessionId];
         require(currentSession.player != (address(0)), "Session not started!");
         require(currentSession.attempts == 6, "Game not over!");
         currentSession.word = word;
         currentSession.salt = salt;
+
         emit WordReveal(sessionId, word, salt);
     }
 }

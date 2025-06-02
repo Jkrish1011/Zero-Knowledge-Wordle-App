@@ -24,7 +24,8 @@ describe("WordleApp", function () {
   async function deployWordleAppFixture() {
     const verifier = await hre.ethers.deployContract("HonkVerifier");
     console.log("verifier", verifier.target);
-    const wordleApp = await hre.ethers.deployContract("WordleApp", [verifier.target], {
+    const [owner] = await hre.ethers.getSigners();
+    const wordleApp = await hre.ethers.deployContract("WordleApp", [verifier.target, owner.address], {
     });
 
     return { wordleApp, verifier };
@@ -46,6 +47,8 @@ describe("WordleApp", function () {
 //     const commitment = "0x2197362b1dddc4c94d89834ba3941074fda8b4d8eb6786959b4247968c4510ee";
 
 //     await wordleApp.startSession(sessionId.toString(), owner.address, commitment);
+// HonkVerifier.sol - 0xF3d87Ff705E75D402DEf6496D290a5727BB88017
+// WordleApp.sol - 0xA2C5488dcCd2601B5B3AFA05136CDC18D387630B
 //   });
 
   it("Verify Guess", async function () {

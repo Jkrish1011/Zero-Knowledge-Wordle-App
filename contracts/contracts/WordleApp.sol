@@ -17,7 +17,7 @@ contract WordleApp {
         uint256[6][] feedback;
         uint256[6][] guesses;
         uint256[6] word;
-        bytes32 salt;
+        uint256 salt;
     }
 
     mapping(uint256 => Session) public sessions;
@@ -26,7 +26,7 @@ contract WordleApp {
     event GuessMade(uint256 sessionId, uint256[6] guess, uint256[6] feedback);
     event GameWon(uint256 sessionId, address player, bytes32 commitment);
     event GameLost(uint256 sessionId, address player, bytes32 commitment);
-    event WordReveal(uint256 sessionId, uint256[6] word, bytes32 salt);
+    event WordReveal(uint256 sessionId, uint256[6] word, uint256 salt);
 
     constructor(address _verifier) {
         verifier = IVerifier(_verifier);
@@ -49,11 +49,21 @@ contract WordleApp {
             feedback: new uint256[6][](0),
             guesses: new uint256[6][](0),
             word: [uint256(0), uint256(0), uint256(0), uint256(0), uint256(0), uint256(0)],
-            salt: bytes32(0)
+            salt: 0
         });
 
         sessions[sessionId] = currentSession;
         emit SessionStarted(sessionId, player, commitment);
+    }
+
+    function updateSession(uint256 sessionId, uint256[6] memory feedback, uint256[6] memory guess) external {
+         Session storage currentSession = sessions[sessionId];
+        require(currentSession.player != (address(0)), "Session not started!");
+        require(currentSession.player == msg.sender, "Not the player of this session!");
+        require(currentSession.attempts < 6, "Game over!");
+        currentSession.attempts++;
+        currentSession.feedback.push(feedback);
+        currentSession.guesses.push(guess);
     }
 
     function verifyGuess(
@@ -93,7 +103,7 @@ contract WordleApp {
         }
     }
 
-    function revealWord(uint256 sessionId, uint256[6] memory word, bytes32 salt) external {
+    function revealWord(uint256 sessionId, uint256[6] memory word, uint256 salt) external {
         Session storage currentSession = sessions[sessionId];
         require(currentSession.player != (address(0)), "Session not started!");
         require(currentSession.attempts == 6, "Game not over!");

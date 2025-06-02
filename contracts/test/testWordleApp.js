@@ -90,9 +90,103 @@ describe("WordleApp", function () {
     console.log({verified});
 
     const EXPECTED_BYTES = 440 * 32; // 14,080 bytes
-    console.log("proof", proof);
-    console.log("commitment", commitment);
+    // console.log("proof", proof);
+    // console.log("commitment", commitment);
     let result = await wordleApp.verifyGuess(sessionId, userInputConverted, feedbackConverted, Uint8Array.from(proof), publicInputs, commitment);
+    // console.log({result});
+  });
+
+  it("Reveal Word", async function () {
+    const { wordleApp } = await loadFixture(deployWordleAppFixture);
+
+    const [owner] = await hre.ethers.getSigners();
+    const targetWord = pickRandomWord();
+    const sessionId = uint8ArrayToBigIntBE(randomBytesCrypto(64)) % Fr.MODULUS;
+    const salt = uint8ArrayToBigIntBE(randomBytesCrypto(64)) % Fr.MODULUS;
+    console.log("targetWord", targetWord);
+    const bb = await initBarretenberg();
+    const { commitment, wordInputs } = await computePedersenCommmitment(targetWord, sessionId, salt, bb);
+
+    const userInput = "ABCDEF";
+    const userInputConverted = [...userInput].map(char => {
+        return getAlphabeticIndex(char);
+    }).map(alphabet => BigInt(alphabet));
+
+    const targetWordConverted = wordInputs;
+
+    const feedback = checkGuess(userInput, targetWord);
+    const feedbackConverted = feedback.map(f => BigInt(f)); 
+
+    await wordleApp.startSession(sessionId.toString(), owner.address, commitment);
+
+    const noirInputs = {
+        targetWord: targetWordConverted,
+        salt: BigInt(salt),
+        session_id: BigInt(sessionId),
+        pedersen_hash: BigInt(commitment), 
+        feedback: feedbackConverted, 
+        userInput: userInputConverted
+    };
+  
+    const noirInputsConverted = prepareNoirInputs(noirInputs);
+    console.log({noirInputsConverted});
+    const backend = new UltraHonkBackend(circuit.bytecode);
+    const noir = new Noir(circuit);
+    const { witness } = await noir.execute(noirInputsConverted);
+    const {proof, publicInputs} = await backend.generateProof(witness, {keccak: true});
+    const verified = await backend.verifyProof({proof, publicInputs}, {keccak: true});
+    console.log({verified});
+
+    const EXPECTED_BYTES = 440 * 32; // 14,080 bytes
+    // console.log("proof", proof);
+    // console.log("commitment", commitment);
+    let result = await wordleApp.verifyGuess(sessionId, userInputConverted, feedbackConverted, Uint8Array.from(proof), publicInputs, commitment);
+    await wordleApp.verifyGuess(sessionId, userInputConverted, feedbackConverted, Uint8Array.from(proof), publicInputs, commitment);
+    await wordleApp.verifyGuess(sessionId, userInputConverted, feedbackConverted, Uint8Array.from(proof), publicInputs, commitment);
+    await wordleApp.verifyGuess(sessionId, userInputConverted, feedbackConverted, Uint8Array.from(proof), publicInputs, commitment);
+    await wordleApp.verifyGuess(sessionId, userInputConverted, feedbackConverted, Uint8Array.from(proof), publicInputs, commitment);
+    await wordleApp.verifyGuess(sessionId, userInputConverted, feedbackConverted, Uint8Array.from(proof), publicInputs, commitment);
+
+    // console.log({result});
+
+    let receipt = await wordleApp.revealWord(sessionId, wordInputs, salt);
+    console.log(receipt);
+  });
+
+    it("Update Session", async function () {
+    const { wordleApp } = await loadFixture(deployWordleAppFixture);
+
+    const [owner] = await hre.ethers.getSigners();
+
+    const sessionId = BigInt(7018558081055087327022903219186038509231319607451137873687964136067378122800);
+    const commitment = "0x2197362b1dddc4c94d89834ba3941074fda8b4d8eb6786959b4247968c4510ee";
+
+    await wordleApp.startSession(sessionId.toString(), owner.address, commitment);
+
+    const feedback = [0, 0, 1, 1, 2, 0];
+    const feedbackConverted = feedback.map(f => BigInt(f));
+
+    const guess = [0, 1, 2, 3, 4, 5];
+    const guessConverted = guess.map(g => BigInt(g));
     
+    const session1 = await wordleApp.sessions(sessionId);
+    console.log({session1});
+
+    await wordleApp.updateSession(sessionId, feedbackConverted, guessConverted);
+
+    const session2 = await wordleApp.sessions(sessionId);
+    console.log({session2});
+
+    await wordleApp.updateSession(sessionId, feedbackConverted, guessConverted);
+
+    await wordleApp.updateSession(sessionId, feedbackConverted, guessConverted);
+    await wordleApp.updateSession(sessionId, feedbackConverted, guessConverted);
+    await wordleApp.updateSession(sessionId, feedbackConverted, guessConverted);
+    await wordleApp.updateSession(sessionId, feedbackConverted, guessConverted);
+
+    // await wordleApp.updateSession(sessionId, feedbackConverted, guessConverted);
+
+    const session4 = await wordleApp.sessions(sessionId);
+    console.log({session4});
   });
 });

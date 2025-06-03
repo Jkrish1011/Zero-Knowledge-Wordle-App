@@ -10,7 +10,7 @@
     <script type="module" src="/main.js"></script>
   </head>
   <body>
-    <div id="navbar" class="flex flex-col items-center p-4 bg-gray-50 border-b border-gray-200">
+    <div id="navbar" class="flex flex-col p-4 bg-gray-50 border-b border-gray-200">
       <div class="flex items-center space-x-4 mb-2">
         <button id="connectButton" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors">Connect to MetaMask</button>
         <button id="startGameButton" class="hidden bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition-colors">Start Game</button>
@@ -20,21 +20,72 @@
         <div id="chainId" class="text-xs text-gray-500"></div>
       </div>
     </div>
-    <div class="container">
-      <h1 class="text-center text-2xl font-bold text-gray-700 mb-4">Wordle - 6 Letter Edition</h1>
-      <div id="game-start-container" class="hidden mt-4 flex flex-col items-center justify-center">
-        <img src="./assets/wordle.gif" alt="Loading..." class="w-40 h-40" />
-        <p class="mt-2 text-gray-600">Starting the game...</p>
+    <!-- Modal backdrop -->
+    <div id="modal-backdrop" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40"></div>
+    <!-- Modal -->
+    <div id="extralarge-modal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+      <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+        <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all w-full max-w-3xl">
+          <!-- Modal header -->
+          <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t border-gray-200">
+            <h3 class="text-xl font-medium text-gray-900 w-full">
+              About the Game
+            </h3>
+            
+          </div>
+          <!-- Modal body -->
+          <div class="p-4 md:p-5 space-y-4">
+            <h1 class="text-2xl font-bold text-gray-900">Zero-Knowledge Wordle: A Fair Play Experience</h1>
+            <p class="text-base leading-relaxed text-gray-500">
+              This is a classic game of Wordle powered by zero-knowledge proofs. The backend commits to a secret word by creating a Pedersen commitment. This commitment is generated using a salt, your current game session ID, and the randomly chosen six-letter word.
+            </p>
+            <p class="text-base leading-relaxed text-gray-500">
+              The zero-knowledge proofs are generated using Noir to verify two key aspects: the creation of the initial commitment and the feedback provided for each round. The backend itself is a combination of a Node.js application and a smart contract that generates the necessary Ultra-Honk Proofs. These proofs allow users to verify the game's integrity both in their browser and on-chain.
+            </p>
+            <h1 class="text-xl font-bold text-gray-900">Why This Solution Was Built</h1>
+            <p class="text-base leading-relaxed text-gray-500">I developed this solution to demonstrate how applications, especially in the gaming domain, can commit to fair play and prevent cheating. In this Wordle example, the backend makes an initial commitment to the word before the user makes their first guess, establishing that the word cannot be changed mid-game.</p>
+            <p class="text-base leading-relaxed text-gray-500">Throughout the game, users can verify the accuracy of the feedback provided by the backend. This is done by verifying the proof generated for each round, either directly in their browser or on-chain. This entire process ensures the game remains fair and transparent for all players.</p>
+            <h2 class="text-lg font-bold text-gray-900">Contracts</h2>
+            <p>
+              The verifier contracts are deployed to the Ethereum Sepolia testnet:
+              <ul class="list-disc list-inside">
+                <li>WordleApp Contract: <a class="text-blue-500" href="https://sepolia.etherscan.io/address/0xc69f8ba784c60f2bf81714e80a9ca5f09385a7b2" target="_blank">WordleApp.sol</a></li>
+                <li>Honk Verifier Contract: <a class="text-blue-500" href="https://sepolia.etherscan.io/address/0xF3d87Ff705E75D402DEf6496D290a5727BB88017" target="_blank">HonkVerifier.sol</a></li>
+              </ul>
+            </p>
+            <h2 class="text-lg font-bold text-gray-900">Code Base</h2>
+            <p class="text-base leading-relaxed text-gray-500">
+              The code base is available on GitHub: <a class="text-blue-500" href="https://github.com/Jkrish1011/Zero-Knowledge-Wordle-App/tree/main" target="_blank">Zero-Knowledge-Wordle-App</a>
+            </p>
+          </div>
+          <!-- Modal footer -->
+          <div class="flex items-center justify-end p-4 md:p-5 space-x-3 border-t border-gray-200 rounded-b">
+            <button data-modal-hide="extralarge-modal" type="button" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Start Game</button>
+          </div>
+        </div>
       </div>
-      <!-- Game Content (hidden by default) -->
-      <div id="game-content" class="hidden">
-        <div id="wordle-grid"></div>
-        <form id="wordleForm" autocomplete="off" class="space-y-4">
-          <input type="text" id="wordInput" maxlength="6" autofocus required pattern="[A-Za-z]{6}" placeholder="Enter 6 letter word" />
-          <button id="guessButton" type="submit">Guess</button>  
-        </form>
-        <button id="computeCommitment" class="hidden bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded transition-colors">Compute Commitment</button>
-        <div id="proof-section">
+    </div>
+
+    <div id="main-content" class="flex flex-col md:flex-row justify-center items-start gap-4 p-4 w-full">
+      <div id="game-section-container" class="w-full md:w-[500px] flex-shrink-0">
+        <h1 class="text-center text-2xl font-bold text-gray-700 mb-4">Wordle - 6 Letter Edition</h1>
+        <div id="game-start-container" class="hidden mt-4 flex flex-col items-center justify-center">
+          <img src="./assets/wordle.gif" alt="Loading..." class="w-40 h-40" />
+          <p class="mt-2 text-gray-600">Starting the game...</p>
+        </div>
+        <!-- Game Content (hidden by default) -->
+        <div id="game-content" class="hidden">
+          <div id="wordle-grid"></div>
+          <form id="wordleForm" autocomplete="off" class="space-y-4">
+            <input type="text" id="wordInput" maxlength="6" autofocus required pattern="[A-Za-z]{6}" placeholder="Enter 6 letter word" />
+            <button id="guessButton" type="submit">Guess</button>  
+          </form>
+          <button id="computeCommitment" class="hidden bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded transition-colors">Compute Commitment</button>
+        </div>
+      </div>
+      <div id="proof-section-container" class="w-full md:w-[500px] flex-grow">
+        <div id="proof-section" class="hidden">
+          <div id="messageWonOrLost" class="mt-4 text-center font-bold"></div>
           <div id="message" class="mt-4 text-center font-bold text-red-600"></div>
           <div id="loading-container" class="hidden mt-4 flex flex-col items-center justify-center">
             <img src="./assets/reload-cat.gif" alt="Loading..." class="w-16 h-16" />
@@ -46,16 +97,18 @@
           </div>
 
           <div class="mb-4">
-            <div id="targetWord" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
+            <div id="targetWord" class="hidden p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
           </div>
           <div class="mb-4">
-            <div id="commitmentVerification" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
+            <div id="commitmentVerification" class="hidden p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
           </div>
           <div class="mb-4">
-            <div id="saltVerification" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
+            <div id="saltVerification" class="hidden p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
           </div>
           <div class="mb-4">
-            <h2 class="text-lg font-semibold text-gray-700 mb-2">Commitment for Current Word</h2>
+            <div id="sessionIdValue" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
+          </div>
+          <div class="mb-4">
             <div id="backendCommitmentValue" class="p-2 bg-gray-100 rounded font-mono text-sm break-all"></div>
           </div>
           <div id="transaction-hash-container" class="mb-4">
@@ -66,11 +119,11 @@
             <div class="space-y-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Proof</label>
-                <textarea id="proof" class="w-full h-64 p-3 bg-gray-100 rounded font-mono text-sm resize-y" readonly></textarea>
+                <textarea id="proof" class="w-full h-40 p-3 bg-gray-100 rounded font-mono text-sm resize-y" readonly></textarea>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Public Inputs</label>
-                <textarea id="publicInputs" class="w-full h-64 p-3 bg-gray-100 rounded font-mono text-sm resize-y" readonly></textarea>
+                <textarea id="publicInputs" class="w-full h-40 p-3 bg-gray-100 rounded font-mono text-sm resize-y" readonly></textarea>
               </div>
               <button id="verifyProofs" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors">
                 Verify Proof In-Browser

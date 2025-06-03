@@ -1,10 +1,28 @@
-.container {
+/* Remove the container class since we're using Tailwind */
+/* .container {
     max-width: 400px;
     margin: 50px auto;
     padding: 20px;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
     border-radius: 8px;
     background: #fff;
+} */
+
+/* Add styles for the game and proof sections */
+#game-section-container, #proof-section-container {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+#game-section-container {
+    margin: 0 auto;
+}
+
+#proof-section-container {
+    margin: 0 auto;
+    overflow-x: auto;
 }
 
 .form-group {

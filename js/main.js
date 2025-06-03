@@ -49,6 +49,13 @@ function showMessage(msg, color = null) {
   else messageDiv.style.color = "#d32f2f";
 }
 
+function showMessageWonOrLost(msg, color = null) {
+  const messageWonOrLostDiv = document.getElementById("messageWonOrLost");
+  messageWonOrLostDiv.textContent = msg;
+  if (color) messageWonOrLostDiv.style.color = color;
+  else messageWonOrLostDiv.style.color = "#d32f2f";
+}
+
 function showProofs(proof, publicInputs) {
   const proofContainer = document.getElementById("proof-container");
   const proofDiv = document.getElementById("proof");
@@ -212,7 +219,7 @@ async function verifyProofOnChain() {
     if (contractVerification.hash) {
       createTransactionHashLink(contractVerification.hash, 'Verify Guess:');
     }
-    showMessage(".......", "#ffe");
+    clearMessage();
     if(contractVerification.hash) {
       showMessage("Proof verified onchain successfully!", "#388e3c");
     } else {
@@ -234,9 +241,9 @@ async function verifyProof() {
     console.log('checking proofs...')
     const verified = await backend.verifyProof({proof, publicInputs}, {keccak: true});
     console.log({verified});
-    showMessage(".......", "#ffe");
+    clearMessage();
     if(verified) {
-      showMessage("Proof verified successfully!", "#388e3c");
+      showMessage("Proof verified in-browser successfully!", "#388e3c");
     } else {
       showMessage("Proof verification failed!", "#d32f2f");
     }
@@ -303,16 +310,22 @@ async function handleInput(e) {
     currentFeedback = response.data.feedback;
     currentUserInput = val.split("").map(char => BigInt(getAlphabeticIndex(char)));
     console.log({proof, publicInputs, currentFeedback, currentUserInput});
+    clearMessage();
     showProofs(proof, publicInputs);
     
     if(response.data.isGameOver && response.data.feedback.every(status => status === 2)) {
-      showMessage(`Game Over! You won!`, "#388e3c");
+      targetWord = response.data.targetWord;
+      salt = response.data.salt;
+      showMessageWonOrLost(`Game Over! You won!`, "#388e3c");
       updateTargetWord(response.data.targetWord);
       updateSalt(response.data.salt);
       isGameOver = true;
+      document.getElementById("computeCommitment").classList.remove("hidden");
+      document.getElementById("guessButton").classList.add("hidden");
     }
+
     if(response.data.attempts === MAX_ATTEMPTS && !response.data.feedback.every(status => status === 2)) {
-      showMessage(`Game Over! You lost!`, "#d32f2f");
+      showMessageWonOrLost(`Game Over! You lost!`, "#d32f2f");
       updateTargetWord(response.data.targetWord);
       updateSalt(response.data.salt);
       isGameOver = true;
@@ -329,26 +342,53 @@ async function handleInput(e) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  
-  // Expose this function to be called from main.js
-  window.updateMetamaskUI = updateUI;
-
-  wordleApp = await WordleAppInteractor.createWithMetamask();
+  // Remove the automatic MetaMask initialization
+  // wordleApp = await WordleAppInteractor.createWithMetamask();
 
   // Add event listener for MetaMask connect button
   const connectButton = document.getElementById("connectButton");
-  connectButton.addEventListener("click", connectMetaMask);
+  connectButton.addEventListener("click", async () => {
+    try {
+      // Initialize MetaMask only when button is clicked
+      wordleApp = await WordleAppInteractor.createWithMetamask();
+      await connectMetaMask();
+    } catch (error) {
+      console.error('Error initializing MetaMask:', error);
+      updateUI(false);
+    }
+  });
+
+  // Add event listener for MetaMask account changes
+  if (window.ethereum) {
+    window.ethereum.on('accountsChanged', (accounts) => {
+      if (accounts.length === 0) {
+        // User disconnected their wallet
+        updateUI(false);
+      } else {
+        // User switched accounts
+        metamaskWallet = accounts[0];
+        document.getElementById('account').textContent = `Wallet: ${accounts[0]}`;
+      }
+    });
+
+    window.ethereum.on('chainChanged', (chainIdFromWallet) => {
+      chainId = parseInt(chainIdFromWallet, 16);
+      document.getElementById('chainId').textContent = `Chain ID: ${chainId}`;
+    });
+  }
 
   // Start game handler
   document.getElementById('startGameButton')?.addEventListener('click', async function() {
-    try {
+  try {
       const response = await startGame(metamaskWallet);
       if (response && response.data) {
         sessionId = response.data.sessionId;
-        document.getElementById("backendCommitmentValue").textContent = response.data.commitment;
+        document.getElementById("sessionIdValue").textContent = `Session ID: ` + sessionId;
+        document.getElementById("backendCommitmentValue").textContent = `Commitment for Current Word: ` + response.data.commitment;
         commitment = response.data.commitment;
         
         // Clear any existing transaction hashes
+        document.getElementById("proof-section").classList.remove("hidden");
         const container = document.getElementById('transaction-hashes');
         container.innerHTML = '';
         
@@ -385,23 +425,52 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const computeCommitmentButton = document.getElementById("computeCommitment");
   computeCommitmentButton.addEventListener("click", computeCommitment);
+
+  // Add modal handling
+  const modal = document.getElementById('extralarge-modal');
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  const modalHideButtons = document.querySelectorAll('[data-modal-hide="extralarge-modal"]');
+
+  // Show modal on page load
+  showModal();
+
+  // Add click handlers for all modal hide buttons
+  modalHideButtons.forEach(button => {
+    button.addEventListener('click', hideModal);
+  });
+
+  // Close modal when clicking outside
+  modalBackdrop.addEventListener('click', hideModal);
+
+  // Add escape key handler
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      hideModal();
+    }
+  });
 });
 
 async function computeCommitment() {
   console.log("computeCommitment");
   console.log({targetWord, sessionId, salt});
   const response = await computePedersenCommmitment(targetWord, sessionId, salt);
-  
+  console.log({response});
   commitment = response.commitment;
-  document.getElementById("commitmentVerification").textContent = `Commitment Calculated is : ${commitment}`;
+  let commitmentVerification = document.getElementById("commitmentVerification");
+  commitmentVerification.classList.remove("hidden");
+  commitmentVerification.textContent = `Commitment Calculated is : ${commitment}`;
 }
 
 function updateTargetWord(targetWord) {
-  document.getElementById("targetWord").textContent = `Target Word: ${targetWord}`;
+  let commitmentVerification = document.getElementById("targetWord");
+  commitmentVerification.classList.remove("hidden");
+  commitmentVerification.textContent = `Target Word: ${targetWord}`;
 }
 
 function updateSalt(salt) {
-  document.getElementById("saltVerification").textContent = `Salt: ${salt}`;
+  let saltVerification = document.getElementById("saltVerification");
+  saltVerification.classList.remove("hidden");
+  saltVerification.textContent = `Salt: ${salt}`;
 }
 
 function updateUI(connected) {
@@ -427,6 +496,7 @@ function updateUI(connected) {
 
 async function connectMetaMask() {
   if (typeof window.ethereum !== 'undefined') {
+    console.log("connecting to metamask...");
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       const chainIdFromWallet = await window.ethereum.request({ method: 'eth_chainId' });
@@ -474,4 +544,20 @@ function createTransactionHashLink(txHash, label = '') {
     linkContainer.appendChild(link);
     container.appendChild(linkContainer);
     return linkContainer;
+}
+
+function showModal() {
+  const modal = document.getElementById('extralarge-modal');
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  modal.classList.remove('hidden');
+  modalBackdrop.classList.remove('hidden');
+  document.body.style.overflow = 'hidden'; // Prevent background scrolling
+}
+
+function hideModal() {
+  const modal = document.getElementById('extralarge-modal');
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  modal.classList.add('hidden');
+  modalBackdrop.classList.add('hidden');
+  document.body.style.overflow = ''; // Restore background scrolling
 }

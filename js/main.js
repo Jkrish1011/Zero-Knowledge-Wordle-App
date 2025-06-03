@@ -307,10 +307,14 @@ async function handleInput(e) {
     
     if(response.data.isGameOver && response.data.feedback.every(status => status === 2)) {
       showMessage(`Game Over! You won!`, "#388e3c");
+      updateTargetWord(response.data.targetWord);
+      updateSalt(response.data.salt);
       isGameOver = true;
     }
     if(response.data.attempts === MAX_ATTEMPTS && !response.data.feedback.every(status => status === 2)) {
-      showMessage(`Game Over! You lost! The word was: ${response.data.targetWord}. The Salt value is: ${response.data.salt} & the Session ID is: ${sessionId}`, "#d32f2f");
+      showMessage(`Game Over! You lost!`, "#d32f2f");
+      updateTargetWord(response.data.targetWord);
+      updateSalt(response.data.salt);
       isGameOver = true;
       targetWord = response.data.targetWord;
       salt = response.data.salt;
@@ -390,6 +394,14 @@ async function computeCommitment() {
   
   commitment = response.commitment;
   document.getElementById("commitmentVerification").textContent = `Commitment Calculated is : ${commitment}`;
+}
+
+function updateTargetWord(targetWord) {
+  document.getElementById("targetWord").textContent = `Target Word: ${targetWord}`;
+}
+
+function updateSalt(salt) {
+  document.getElementById("saltVerification").textContent = `Salt: ${salt}`;
 }
 
 function updateUI(connected) {

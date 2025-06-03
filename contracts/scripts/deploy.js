@@ -3,7 +3,7 @@ const hre = require("hardhat");
 async function main() {
     console.log("🚀 Starting deployment to Sepolia...");
     // 0xF3d87Ff705E75D402DEf6496D290a5727BB88017 - HonkVerifier
-    // 0xA2C5488dcCd2601B5B3AFA05136CDC18D387630B - WordleApp
+    // 0xc69f8bA784c60F2bF81714e80A9ca5F09385a7b2 - WordleApp
     // Get the deployer account
     const deployer = await hre.ethers.getSigners();
     console.log("Deploying contracts with account:", deployer[0].address);

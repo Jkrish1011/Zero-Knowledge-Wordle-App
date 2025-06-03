@@ -34,7 +34,7 @@ contract WordleApp is Ownable {
         verifier = IVerifier(_verifier);
     }
 
-    function isGameOver(uint256[6] memory feedback) internal pure returns (bool) {
+    function isGameWon(uint256[6] memory feedback) internal pure returns (bool) {
         for (uint i = 0; i < 6; i++) {
             if (feedback[i] != 2) return false;
         }
@@ -69,20 +69,13 @@ contract WordleApp is Ownable {
         emit SessionUpdated(sessionId, feedback, guess);
     }
 
-    function checkIfGameOver(uint256 sessionId) external returns (bool) {
+    function checkIfGameOver(uint256 sessionId) external view returns (bool) {
         Session storage currentSession = sessions[sessionId];
         require(currentSession.player != (address(0)), "Session not started!");
-        require(currentSession.attempts < 6, "Game over!");
 
-        bool userWon = isGameOver(currentSession.feedback[currentSession.attempts]);
+        bool userWon = isGameWon(currentSession.feedback[currentSession.attempts-1]);
 
-        if (userWon) {
-            emit GameWon(sessionId, msg.sender, currentSession.commitment);
-        } else {
-            emit GameLost(sessionId, msg.sender, currentSession.commitment);
-        }
-
-        return userWon;
+        return userWon && currentSession.attempts < 6;
     }
 
     function verifyGuess(
@@ -108,10 +101,18 @@ contract WordleApp is Ownable {
 
     function revealWord(uint256 sessionId, uint256[6] memory word, uint256 salt) onlyOwner external {
         Session storage currentSession = sessions[sessionId];
+        bool gameWon = isGameWon(currentSession.feedback[currentSession.attempts-1]);
         require(currentSession.player != (address(0)), "Session not started!");
-        require(currentSession.attempts == 6, "Game not over!");
+        require(currentSession.attempts >= 6 || gameWon, "Game not over yet!");
+
         currentSession.word = word;
         currentSession.salt = salt;
+
+        if (gameWon && currentSession.attempts < 6) {
+            emit GameWon(sessionId, msg.sender, currentSession.commitment);
+        } else if (currentSession.attempts >= 6 && !gameWon) {
+            emit GameLost(sessionId, msg.sender, currentSession.commitment);
+        }
 
         emit WordReveal(sessionId, word, salt);
     }

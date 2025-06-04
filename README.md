@@ -4,6 +4,8 @@
 Concept: Inspired by the popular game Wordle, players guess a secret six-letter word, receiving feedback (correct letter and position, correct letter wrong position, or incorrect letter) via ZKPs to ensure honesty without revealing the word.
 ```
 
+![image](./js/assets/wordle_app.png)
+
 This is a classic game of Wordle powered by zero-knowledge proofs. The backend commits to a secret word by creating a Pedersen commitment. This commitment is generated using a salt, your current game session ID, and the randomly chosen six-letter word.
 
 The zero-knowledge proofs are generated using Noir to verify two key aspects: the creation of the initial commitment and the feedback provided for each round. The backend itself is a combination of a Node.js application and a smart contract that generates the necessary Ultra-Honk Proofs. These proofs allow users to verify the game's integrity both in their browser and on-chain.
